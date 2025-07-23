@@ -31,6 +31,7 @@ import (
 type RESTOptions struct {
 	StorageConfig *storagebackend.ConfigForResource
 	Decorator     StorageDecorator
+	FastDecorator StorageDecorator
 
 	EnableGarbageCollection   bool
 	DeleteCollectionWorkers   int

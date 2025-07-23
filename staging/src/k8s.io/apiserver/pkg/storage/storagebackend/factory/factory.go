@@ -36,6 +36,8 @@ func Create(c storagebackend.ConfigForResource, newFunc, newListFunc func() runt
 		return nil, nil, fmt.Errorf("%s is no longer a supported storage backend", c.Type)
 	case storagebackend.StorageTypeUnset, storagebackend.StorageTypeETCD3:
 		return newETCD3Storage(c, newFunc, newListFunc, resourcePrefix)
+	case storagebackend.StorageTypeFastETCD3:
+		return newFastETCD3Storage(c, newFunc, newListFunc, resourcePrefix)
 	default:
 		return nil, nil, fmt.Errorf("unknown storage type: %s", c.Type)
 	}

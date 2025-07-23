@@ -82,6 +82,64 @@ func StorageWithCacher() generic.StorageDecorator {
 	}
 }
 
+// Creates a fast storage cacher based given storageConfig.
+func FastStorageWithCacher() generic.StorageDecorator {
+	return func(
+		storageConfig *storagebackend.ConfigForResource,
+		resourcePrefix string,
+		keyFunc func(obj runtime.Object) (string, error),
+		newFunc func() runtime.Object,
+		newListFunc func() runtime.Object,
+		getAttrsFunc storage.AttrFunc,
+		triggerFuncs storage.IndexerFuncs,
+		indexers *cache.Indexers) (storage.Interface, factory.DestroyFunc, error) {
+
+		if storageConfig.Type == storagebackend.StorageTypeETCD3 || storageConfig.Type == storagebackend.StorageTypeUnset {
+			storageConfig.Type = storagebackend.StorageTypeFastETCD3
+
+			defer func() {
+				storageConfig.Type = storagebackend.StorageTypeETCD3
+			}()
+		}
+
+		s, d, err := generic.NewRawStorage(storageConfig, newFunc, newListFunc, resourcePrefix)
+		if err != nil {
+			return s, d, err
+		}
+		if klogV := klog.V(5); klogV.Enabled() {
+			//nolint:logcheck // It complains about the key/value pairs because it cannot check them.
+			klogV.InfoS("Storage caching is enabled", objectTypeToArgs(newFunc())...)
+		}
+
+		cacherConfig := cacherstorage.Config{
+			Storage:        s,
+			Versioner:      storage.APIObjectVersioner{},
+			GroupResource:  storageConfig.GroupResource,
+			ResourcePrefix: resourcePrefix,
+			KeyFunc:        keyFunc,
+			NewFunc:        newFunc,
+			NewListFunc:    newListFunc,
+			GetAttrsFunc:   getAttrsFunc,
+			IndexerFuncs:   triggerFuncs,
+			Indexers:       indexers,
+			Codec:          storageConfig.Codec,
+		}
+		cacher, err := cacherstorage.NewCacherFromConfig(cacherConfig)
+		if err != nil {
+			return nil, func() {}, err
+		}
+		var once sync.Once
+		destroyFunc := func() {
+			once.Do(func() {
+				cacher.Stop()
+				d()
+			})
+		}
+
+		return cacher, destroyFunc, nil
+	}
+}
+
 func objectTypeToArgs(obj runtime.Object) []interface{} {
 	// special-case unstructured objects that tell us their apiVersion/kind
 	if u, isUnstructured := obj.(*unstructured.Unstructured); isUnstructured {

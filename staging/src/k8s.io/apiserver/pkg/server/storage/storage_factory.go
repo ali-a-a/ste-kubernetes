@@ -67,6 +67,8 @@ type DefaultStorageFactory struct {
 	// Its authentication information will be used for every storage.Interface returned.
 	StorageConfig storagebackend.Config
 
+	FastStorageConfig storagebackend.Config
+
 	Overrides map[schema.GroupResource]groupResourceOverrides
 
 	DefaultResourcePrefixes map[schema.GroupResource]string
@@ -269,7 +271,11 @@ func (s *DefaultStorageFactory) NewConfig(groupResource schema.GroupResource, ex
 	}
 	klog.V(3).Infof("storing %v in %v, reading as %v from %#v", groupResource, codecConfig.StorageVersion, codecConfig.MemoryVersion, codecConfig.Config)
 
-	return storageConfig.ForResource(groupResource), nil
+	cfr := storageConfig.ForResource(groupResource)
+
+	cfr.FastStorage = s.FastStorageConfig
+
+	return cfr, nil
 }
 
 // Configs implements StorageFactory.

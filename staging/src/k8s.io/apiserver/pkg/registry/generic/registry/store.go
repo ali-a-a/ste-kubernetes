@@ -219,6 +219,11 @@ type Store struct {
 	// resource. It is wrapped into a "DryRunnableStorage" that will
 	// either pass-through or simply dry-run.
 	Storage DryRunnableStorage
+
+	// FastStorage is the interface for accessing the fast but less
+	// reliable underlying storage.
+	FastStorage DryRunnableStorage
+
 	// StorageVersioner outputs the <group/version/kind> an object will be
 	// converted to before persisted in etcd, given a list of possible
 	// kinds of the object.
@@ -523,7 +528,19 @@ func (e *Store) create(ctx context.Context, obj runtime.Object, createValidation
 		return nil, err
 	}
 	out := e.NewFunc()
-	if err := e.Storage.Create(ctx, key, obj, out, ttl, dryrun.IsDryRun(options.DryRun)); err != nil {
+
+	moveToFastStorage, err := e.shouldBeMovedToTheFastStorage(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	finalStore := e.Storage
+
+	if moveToFastStorage {
+		finalStore = e.FastStorage
+	}
+
+	if err := finalStore.Create(ctx, key, obj, out, ttl, dryrun.IsDryRun(options.DryRun)); err != nil {
 		err = storeerr.InterpretCreateError(err, qualifiedResource, name)
 		err = rest.CheckGeneratedNameError(ctx, e.CreateStrategy, err, obj)
 		if !apierrors.IsAlreadyExists(err) {
@@ -864,6 +881,25 @@ func (e *Store) qualifiedResourceFromContext(ctx context.Context) schema.GroupRe
 	}
 	// some implementations access storage directly and thus the context has no RequestInfo
 	return e.DefaultQualifiedResource
+}
+
+// shouldBeMovedToTheFastStorage determines whether the object should be stored in the
+// fast storage or not.
+func (e *Store) shouldBeMovedToTheFastStorage(obj runtime.Object) (bool, error) {
+	objectMeta, err := meta.Accessor(obj)
+	if err != nil {
+		return false, err
+	}
+
+	ownerReferences := objectMeta.GetOwnerReferences()
+
+	for _, or := range ownerReferences {
+		if or.Kind == "ReplicaSet" {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 var (
@@ -1614,8 +1650,9 @@ func (e *Store) CompleteWithOptions(options *generic.StoreOptions) error {
 		}
 	}
 
-	if e.Storage.Storage == nil {
+	if e.Storage.Storage == nil || e.FastStorage.Storage == nil {
 		e.Storage.Codec = opts.StorageConfig.Codec
+		e.FastStorage.Codec = opts.StorageConfig.Codec
 		var err error
 		e.Storage.Storage, e.DestroyFunc, err = opts.Decorator(
 			opts.StorageConfig,
@@ -1630,6 +1667,17 @@ func (e *Store) CompleteWithOptions(options *generic.StoreOptions) error {
 		if err != nil {
 			return err
 		}
+
+		e.FastStorage.Storage, _, err = opts.FastDecorator(
+			opts.StorageConfig,
+			prefix,
+			keyFunc,
+			e.NewFunc,
+			e.NewListFunc,
+			attrFunc,
+			options.TriggerFunc,
+			options.Indexers,
+		)
 		e.StorageVersioner = opts.StorageConfig.EncodeVersioner
 
 		if opts.CountMetricPollPeriod > 0 {

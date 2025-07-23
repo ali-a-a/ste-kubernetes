@@ -51,6 +51,7 @@ type Options struct {
 	Flagz                   flagz.Reader
 	GenericServerRunOptions *genericoptions.ServerRunOptions
 	Etcd                    *genericoptions.EtcdOptions
+	FastStorage             *genericoptions.EtcdOptions
 	SecureServing           *genericoptions.SecureServingOptionsWithLoopback
 	Audit                   *genericoptions.AuditOptions
 	Features                *genericoptions.FeatureOptions
@@ -109,6 +110,7 @@ func NewOptions() *Options {
 	s := Options{
 		GenericServerRunOptions: genericoptions.NewServerRunOptions(),
 		Etcd:                    genericoptions.NewEtcdOptions(storagebackend.NewDefaultConfig(kubeoptions.DefaultEtcdPathPrefix, nil)),
+		FastStorage:             genericoptions.NewEtcdOptions(storagebackend.NewDefaultConfig(kubeoptions.DefaultEtcdPathPrefix, nil)),
 		SecureServing:           kubeoptions.NewSecureServingOptions(),
 		Audit:                   genericoptions.NewAuditOptions(),
 		Features:                genericoptions.NewFeatureOptions(),
@@ -129,6 +131,7 @@ func NewOptions() *Options {
 
 	// Overwrite the default for storage data format.
 	s.Etcd.DefaultStorageMediaType = "application/vnd.kubernetes.protobuf"
+	s.FastStorage.DefaultStorageMediaType = "application/vnd.kubernetes.protobuf"
 
 	return &s
 }
@@ -201,6 +204,10 @@ func (s *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 
 	fs.StringVar(&s.ServiceAccountSigningEndpoint, "service-account-signing-endpoint", s.ServiceAccountSigningEndpoint, ""+
 		"Path to socket where a external JWT signer is listening. This flag is mutually exclusive with --service-account-signing-key-file and --service-account-key-file. Requires enabling feature gate (ExternalServiceAccountTokenSigner)")
+
+	// Identify fast storage servers
+	fs.StringSliceVar(&s.FastStorage.StorageConfig.Transport.ServerList, "fast-storage-servers", s.FastStorage.StorageConfig.Transport.ServerList,
+		"List of fast storage servers to connect with (scheme://ip:port), comma separated.")
 }
 
 func (o *Options) Complete(ctx context.Context, fss cliflag.NamedFlagSets, alternateDNS []string, alternateIPs []net.IP) (CompletedOptions, error) {

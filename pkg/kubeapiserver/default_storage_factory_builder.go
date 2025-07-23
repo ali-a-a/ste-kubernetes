@@ -93,6 +93,7 @@ func NewStorageFactoryConfig() *StorageFactoryConfig {
 // StorageFactoryConfig is a configuration for creating storage factory.
 type StorageFactoryConfig struct {
 	StorageConfig             storagebackend.Config
+	FastStorageConfig         storagebackend.Config
 	APIResourceConfig         *serverstorage.ResourceConfig
 	DefaultResourceEncoding   *serverstorage.DefaultResourceEncodingConfig
 	DefaultStorageMediaType   string
@@ -129,6 +130,8 @@ func (c *completedStorageFactoryConfig) New() (*serverstorage.DefaultStorageFact
 		resourceEncodingConfig,
 		c.APIResourceConfig,
 		SpecialDefaultResourcePrefixes)
+
+	storageFactory.FastStorageConfig = c.FastStorageConfig
 
 	storageFactory.AddCohabitatingResources(networking.Resource("networkpolicies"), extensions.Resource("networkpolicies"))
 	storageFactory.AddCohabitatingResources(apps.Resource("deployments"), extensions.Resource("deployments"))

@@ -194,9 +194,15 @@ func BuildGenericConfig(
 	storageFactoryConfig.APIResourceConfig = genericConfig.MergedResourceConfig
 	storageFactoryConfig.DefaultResourceEncoding.SetEffectiveVersion(genericConfig.EffectiveVersion)
 	storageFactory, lastErr = storageFactoryConfig.Complete(s.Etcd).New()
+
 	if lastErr != nil {
 		return
 	}
+
+	// Overwrite fast storage config
+	storageFactory.FastStorageConfig = storageFactory.StorageConfig
+	storageFactory.FastStorageConfig.Transport.ServerList = s.FastStorage.StorageConfig.Transport.ServerList
+
 	// storageFactory.StorageConfig is copied from etcdOptions.StorageConfig,
 	// the StorageObjectCountTracker is still nil. Here we copy from genericConfig.
 	storageFactory.StorageConfig.StorageObjectCountTracker = genericConfig.StorageObjectCountTracker

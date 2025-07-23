@@ -31,9 +31,10 @@ import (
 )
 
 const (
-	StorageTypeUnset = ""
-	StorageTypeETCD2 = "etcd2"
-	StorageTypeETCD3 = "etcd3"
+	StorageTypeUnset     = ""
+	StorageTypeETCD2     = "etcd2"
+	StorageTypeETCD3     = "etcd3"
+	StorageTypeFastETCD3 = "etcd3fast"
 
 	DefaultCompactInterval      = 5 * time.Minute
 	DefaultDBMetricPollInterval = 30 * time.Second
@@ -96,7 +97,8 @@ type Config struct {
 type ConfigForResource struct {
 	// Config is the resource-independent configuration
 	Config
-
+	// FastStorage is the resource-independent configuration for the fast storage
+	FastStorage Config
 	// GroupResource is the relevant one
 	GroupResource schema.GroupResource
 }

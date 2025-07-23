@@ -392,6 +392,7 @@ func (f *StorageFactoryRestOptionsFactory) GetRESTOptions(resource schema.GroupR
 	ret := generic.RESTOptions{
 		StorageConfig:             storageConfig,
 		Decorator:                 generic.UndecoratedStorage,
+		FastDecorator:             generic.UndecoratedFastStorage,
 		DeleteCollectionWorkers:   f.Options.DeleteCollectionWorkers,
 		EnableGarbageCollection:   f.Options.EnableGarbageCollection,
 		ResourcePrefix:            f.StorageFactory.ResourcePrefix(resource),
@@ -413,11 +414,13 @@ func (f *StorageFactoryRestOptionsFactory) GetRESTOptions(resource schema.GroupR
 			klog.Warningf("Dropping watch-cache-size for %v - watchCache size is now dynamic", resource)
 		}
 		if ok && size <= 0 {
-			klog.V(3).InfoS("Not using watch cache", "resource", resource)
+			klog.V(0).InfoS("Not using watch cache", "resource", resource)
 			ret.Decorator = generic.UndecoratedStorage
+			ret.FastDecorator = generic.UndecoratedFastStorage
 		} else {
-			klog.V(3).InfoS("Using watch cache", "resource", resource)
+			klog.V(0).InfoS("Using watch cache", "resource", resource)
 			ret.Decorator = genericregistry.StorageWithCacher()
+			ret.FastDecorator = genericregistry.FastStorageWithCacher()
 		}
 	}
 
