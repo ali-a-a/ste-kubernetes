@@ -73,6 +73,8 @@ type Config struct {
 	// An underlying storage.Interface.
 	Storage storage.Interface
 
+	FastStorage storage.Interface
+
 	// An underlying storage.Versioner.
 	Versioner storage.Versioner
 
@@ -269,6 +271,8 @@ type Cacher struct {
 
 	// Underlying storage.Interface.
 	storage storage.Interface
+
+	fastStorage storage.Interface
 
 	// Expected type of objects in the underlying cache.
 	objectType reflect.Type

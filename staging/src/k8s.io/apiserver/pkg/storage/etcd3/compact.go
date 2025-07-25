@@ -145,6 +145,10 @@ func compact(ctx context.Context, client *clientv3.Client, t, rev int64) (int64,
 	curRev := resp.Header.Revision
 
 	if !resp.Succeeded {
+		// if OpGet finds no compactRevKey, return.
+		if len(resp.Responses[0].GetResponseRange().Kvs) == 0 {
+			return 0, curRev, nil
+		}
 		curTime := resp.Responses[0].GetResponseRange().Kvs[0].Version
 		return curTime, curRev, nil
 	}

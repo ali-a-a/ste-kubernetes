@@ -49,6 +49,8 @@ const (
 	incomingBufSize         = 100
 	outgoingBufSize         = 100
 	processEventConcurrency = 10
+
+	watcherHeartBeat = 5 * time.Second
 )
 
 // defaultWatcherMaxLimit is used to facilitate construction tests
@@ -114,6 +116,22 @@ func (w *watcher) Watch(ctx context.Context, key string, rev int64, opts storage
 	}
 	wc := w.createWatchChan(ctx, key, startWatchRV, opts.Recursive, opts.ProgressNotify, opts.Predicate)
 	go wc.run(isInitialEventsEndBookmarkRequired(opts), areInitialEventsRequired(rev, opts))
+
+	// This goroutine pings the fast etcd and reestablishes the channel in case of failures.
+	go func() {
+		if opts.SendInitialEvents != nil && *opts.SendInitialEvents == true {
+			for range time.Tick(watcherHeartBeat) {
+				resp, err := w.client.KV.Get(ctx, "compact_rev_key")
+				if err != nil {
+					continue
+				}
+
+				if resp != nil && len(resp.Kvs) == 0 {
+					wc.Stop()
+				}
+			}
+		}
+	}()
 
 	// For etcd watch we don't have an easy way to answer whether the watch
 	// has already caught up. So in the initial version (given that watchcache

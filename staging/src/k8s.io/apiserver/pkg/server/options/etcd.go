@@ -414,13 +414,15 @@ func (f *StorageFactoryRestOptionsFactory) GetRESTOptions(resource schema.GroupR
 			klog.Warningf("Dropping watch-cache-size for %v - watchCache size is now dynamic", resource)
 		}
 		if ok && size <= 0 {
-			klog.V(0).InfoS("Not using watch cache", "resource", resource)
+			klog.V(4).InfoS("Not using watch cache", "resource", resource)
 			ret.Decorator = generic.UndecoratedStorage
 			ret.FastDecorator = generic.UndecoratedFastStorage
 		} else {
-			klog.V(0).InfoS("Using watch cache", "resource", resource)
+			klog.V(4).InfoS("Using watch cache", "resource", resource)
 			ret.Decorator = genericregistry.StorageWithCacher()
-			ret.FastDecorator = genericregistry.FastStorageWithCacher()
+			// For the in-memory etcd, cache is not necessary. To use the cache,
+			// replace the line with genericregistry.FastStorageWithCacher().
+			ret.FastDecorator = generic.UndecoratedFastStorage
 		}
 	}
 

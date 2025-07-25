@@ -125,7 +125,14 @@ func (r *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 		preconditions := storage.Preconditions{UID: options.Preconditions.UID, ResourceVersion: options.Preconditions.ResourceVersion}
 
 		out := r.Store.NewFunc()
-		err = r.Store.Storage.GuaranteedUpdate(
+
+		finalStore := r.Store.Storage
+
+		if storage.ShouldKeyMoveToTheFastStorage(key) {
+			finalStore = r.Store.FastStorage
+		}
+
+		err = finalStore.GuaranteedUpdate(
 			ctx, key, out, false, &preconditions,
 			storage.SimpleUpdate(func(existing runtime.Object) (runtime.Object, error) {
 				existingCRD, ok := existing.(*apiextensions.CustomResourceDefinition)

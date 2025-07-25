@@ -46,9 +46,10 @@ var (
 type Etcd struct {
 	lock sync.Mutex
 
-	alloc   allocator.Snapshottable
-	storage storage.Interface
-	last    string
+	alloc       allocator.Snapshottable
+	storage     storage.Interface
+	fastStorage storage.Interface
+	last        string
 
 	baseKey  string
 	resource schema.GroupResource
@@ -70,13 +71,27 @@ func NewEtcd(alloc allocator.Snapshottable, baseKey string, config *storagebacke
 		return nil, err
 	}
 
+	if config.Type == storagebackend.StorageTypeETCD3 || config.Type == storagebackend.StorageTypeUnset {
+		config.Type = storagebackend.StorageTypeFastETCD3
+
+		defer func() {
+			config.Type = storagebackend.StorageTypeETCD3
+		}()
+	}
+
+	fastStorage, _, err := generic.NewRawStorage(config, nil, nil, "")
+	if err != nil {
+		return nil, err
+	}
+
 	var once sync.Once
 	return &Etcd{
-		alloc:     alloc,
-		storage:   storage,
-		baseKey:   baseKey,
-		resource:  config.GroupResource,
-		destroyFn: func() { once.Do(d) },
+		alloc:       alloc,
+		storage:     storage,
+		fastStorage: fastStorage,
+		baseKey:     baseKey,
+		resource:    config.GroupResource,
+		destroyFn:   func() { once.Do(d) },
 	}, nil
 }
 
@@ -152,7 +167,13 @@ func (e *Etcd) ForEach(fn func(int)) {
 
 // tryUpdate performs a read-update to persist the latest snapshot state of allocation.
 func (e *Etcd) tryUpdate(fn func() error) error {
-	err := e.storage.GuaranteedUpdate(context.TODO(), e.baseKey, &api.RangeAllocation{}, true, nil,
+	finalStore := e.storage
+
+	if storage.ShouldKeyMoveToTheFastStorage(e.baseKey) {
+		finalStore = e.fastStorage
+	}
+
+	err := finalStore.GuaranteedUpdate(context.TODO(), e.baseKey, &api.RangeAllocation{}, true, nil,
 		storage.SimpleUpdate(func(input runtime.Object) (output runtime.Object, err error) {
 			existing := input.(*api.RangeAllocation)
 			if len(existing.ResourceVersion) == 0 {
@@ -181,7 +202,14 @@ func (e *Etcd) tryUpdate(fn func() error) error {
 // etcd. If the key does not exist, the object will have an empty ResourceVersion.
 func (e *Etcd) Get() (*api.RangeAllocation, error) {
 	existing := &api.RangeAllocation{}
-	if err := e.storage.Get(context.TODO(), e.baseKey, storage.GetOptions{IgnoreNotFound: true}, existing); err != nil {
+
+	finalStore := e.storage
+
+	if storage.ShouldKeyMoveToTheFastStorage(e.baseKey) {
+		finalStore = e.fastStorage
+	}
+
+	if err := finalStore.Get(context.TODO(), e.baseKey, storage.GetOptions{IgnoreNotFound: true}, existing); err != nil {
 		return nil, storeerr.InterpretGetError(err, e.resource, "")
 	}
 	return existing, nil
@@ -193,8 +221,14 @@ func (e *Etcd) CreateOrUpdate(snapshot *api.RangeAllocation) error {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 
+	finalStore := e.storage
+
+	if storage.ShouldKeyMoveToTheFastStorage(e.baseKey) {
+		finalStore = e.fastStorage
+	}
+
 	last := ""
-	err := e.storage.GuaranteedUpdate(context.TODO(), e.baseKey, &api.RangeAllocation{}, true, nil,
+	err := finalStore.GuaranteedUpdate(context.TODO(), e.baseKey, &api.RangeAllocation{}, true, nil,
 		storage.SimpleUpdate(func(input runtime.Object) (output runtime.Object, err error) {
 			existing := input.(*api.RangeAllocation)
 			switch {

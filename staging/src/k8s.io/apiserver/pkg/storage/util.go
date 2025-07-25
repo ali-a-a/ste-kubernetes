@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync/atomic"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -148,4 +149,13 @@ func HasInitialEventsEndBookmarkAnnotation(obj runtime.Object) (bool, error) {
 	}
 	objAnnotations := objMeta.GetAnnotations()
 	return objAnnotations[metav1.InitialEventsAnnotationKey] == "true", nil
+}
+
+// ShouldKeyMoveToTheFastStorage checks whether the key is a pod key.
+func ShouldKeyMoveToTheFastStorage(key string) bool {
+	if strings.Contains(key, "/pods") {
+		return true
+	}
+
+	return false
 }

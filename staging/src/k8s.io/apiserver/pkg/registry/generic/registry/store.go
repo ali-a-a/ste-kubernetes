@@ -418,14 +418,28 @@ func (e *Store) ListPredicate(ctx context.Context, p storage.SelectionPredicate,
 
 	if name, ok := p.MatchesSingle(); ok {
 		if key, err := e.KeyFunc(ctx, name); err == nil {
+			finalStore := e.Storage
+
+			if storage.ShouldKeyMoveToTheFastStorage(key) {
+				finalStore = e.FastStorage
+			}
+
 			storageOpts.Recursive = false
-			err := e.Storage.GetList(ctx, key, storageOpts, list)
+			err := finalStore.GetList(ctx, key, storageOpts, list)
 			return list, storeerr.InterpretListError(err, qualifiedResource)
 		}
 		// if we cannot extract a key based on the current context, the optimization is skipped
 	}
 
-	err := e.Storage.GetList(ctx, e.KeyRootFunc(ctx), storageOpts, list)
+	rootKey := e.KeyRootFunc(ctx)
+
+	finalStore := e.Storage
+
+	if storage.ShouldKeyMoveToTheFastStorage(rootKey) {
+		finalStore = e.FastStorage
+	}
+
+	err := finalStore.GetList(ctx, rootKey, storageOpts, list)
 	return list, storeerr.InterpretListError(err, qualifiedResource)
 }
 
@@ -522,6 +536,7 @@ func (e *Store) create(ctx context.Context, obj runtime.Object, createValidation
 	if err != nil {
 		return nil, err
 	}
+
 	qualifiedResource := e.qualifiedResourceFromContext(ctx)
 	ttl, err := e.calculateTTL(obj, 0, false)
 	if err != nil {
@@ -536,7 +551,7 @@ func (e *Store) create(ctx context.Context, obj runtime.Object, createValidation
 
 	finalStore := e.Storage
 
-	if moveToFastStorage {
+	if moveToFastStorage || storage.ShouldKeyMoveToTheFastStorage(key) {
 		finalStore = e.FastStorage
 	}
 
@@ -546,7 +561,7 @@ func (e *Store) create(ctx context.Context, obj runtime.Object, createValidation
 		if !apierrors.IsAlreadyExists(err) {
 			return nil, err
 		}
-		if errGet := e.Storage.Get(ctx, key, storage.GetOptions{}, out); errGet != nil {
+		if errGet := finalStore.Get(ctx, key, storage.GetOptions{}, out); errGet != nil {
 			return nil, err
 		}
 		accessor, errGetAcc := meta.Accessor(out)
@@ -608,7 +623,14 @@ func (e *Store) deleteWithoutFinalizers(ctx context.Context, name, key string, o
 	out := e.NewFunc()
 	klog.V(6).InfoS("Going to delete object from registry, triggered by update", "object", klog.KRef(genericapirequest.NamespaceValue(ctx), name))
 	// Using the rest.ValidateAllObjectFunc because the request is an UPDATE request and has already passed the admission for the UPDATE verb.
-	if err := e.Storage.Delete(ctx, key, out, preconditions, rest.ValidateAllObjectFunc, dryrun.IsDryRun(options.DryRun), nil, storage.DeleteOptions{}); err != nil {
+
+	finalStore := e.Storage
+
+	if storage.ShouldKeyMoveToTheFastStorage(key) {
+		finalStore = e.FastStorage
+	}
+
+	if err := finalStore.Delete(ctx, key, out, preconditions, rest.ValidateAllObjectFunc, dryrun.IsDryRun(options.DryRun), nil, storage.DeleteOptions{}); err != nil {
 		// Deletion is racy, i.e., there could be multiple update
 		// requests to remove all finalizers from the object, so we
 		// ignore the NotFound error.
@@ -642,6 +664,12 @@ func (e *Store) Update(ctx context.Context, name string, objInfo rest.UpdatedObj
 		creating    = false
 	)
 
+	finalStore := e.Storage
+
+	if storage.ShouldKeyMoveToTheFastStorage(key) {
+		finalStore = e.FastStorage
+	}
+
 	qualifiedResource := e.qualifiedResourceFromContext(ctx)
 	storagePreconditions := &storage.Preconditions{}
 	if preconditions := objInfo.Preconditions(); preconditions != nil {
@@ -652,8 +680,8 @@ func (e *Store) Update(ctx context.Context, name string, objInfo rest.UpdatedObj
 	out := e.NewFunc()
 	// deleteObj is only used in case a deletion is carried out
 	var deleteObj runtime.Object
-	err = e.Storage.GuaranteedUpdate(ctx, key, out, true, storagePreconditions, func(existing runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
-		existingResourceVersion, err := e.Storage.Versioner().ObjectResourceVersion(existing)
+	err = finalStore.GuaranteedUpdate(ctx, key, out, true, storagePreconditions, func(existing runtime.Object, res storage.ResponseMeta) (runtime.Object, *uint64, error) {
+		existingResourceVersion, err := finalStore.Versioner().ObjectResourceVersion(existing)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -673,7 +701,7 @@ func (e *Store) Update(ctx context.Context, name string, objInfo rest.UpdatedObj
 		// the user does not have a resource version, then we populate it with
 		// the latest version. Else, we check that the version specified by
 		// the user matches the version of latest storage object.
-		newResourceVersion, err := e.Storage.Versioner().ObjectResourceVersion(obj)
+		newResourceVersion, err := finalStore.Versioner().ObjectResourceVersion(obj)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -731,7 +759,7 @@ func (e *Store) Update(ctx context.Context, name string, objInfo rest.UpdatedObj
 		if doUnconditionalUpdate {
 			// Update the object's resource version to match the latest
 			// storage object's resource version.
-			err = e.Storage.Versioner().UpdateObject(obj, res.ResourceVersion)
+			err = finalStore.Versioner().UpdateObject(obj, res.ResourceVersion)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -864,7 +892,14 @@ func (e *Store) Get(ctx context.Context, name string, options *metav1.GetOptions
 	if err != nil {
 		return nil, err
 	}
-	if err := e.Storage.Get(ctx, key, storage.GetOptions{ResourceVersion: options.ResourceVersion}, obj); err != nil {
+
+	finalStore := e.Storage
+
+	if storage.ShouldKeyMoveToTheFastStorage(key) {
+		finalStore = e.FastStorage
+	}
+
+	if err := finalStore.Get(ctx, key, storage.GetOptions{ResourceVersion: options.ResourceVersion}, obj); err != nil {
 		return nil, storeerr.InterpretGetError(err, e.qualifiedResourceFromContext(ctx), name)
 	}
 	if e.Decorator != nil {
@@ -1078,7 +1113,14 @@ func (e *Store) updateForGracefulDeletionAndFinalizers(ctx context.Context, name
 	lastGraceful := int64(0)
 	var pendingFinalizers bool
 	out = e.NewFunc()
-	err = e.Storage.GuaranteedUpdate(
+
+	finalStore := e.Storage
+
+	if storage.ShouldKeyMoveToTheFastStorage(key) {
+		finalStore = e.FastStorage
+	}
+
+	err = finalStore.GuaranteedUpdate(
 		ctx,
 		key,
 		out,
@@ -1168,7 +1210,13 @@ func (e *Store) Delete(ctx context.Context, name string, deleteValidation rest.V
 	}
 	obj := e.NewFunc()
 	qualifiedResource := e.qualifiedResourceFromContext(ctx)
-	if err = e.Storage.Get(ctx, key, storage.GetOptions{}, obj); err != nil {
+	finalStore := e.Storage
+
+	if storage.ShouldKeyMoveToTheFastStorage(key) {
+		finalStore = e.FastStorage
+	}
+
+	if err = finalStore.Get(ctx, key, storage.GetOptions{}, obj); err != nil {
 		return nil, false, storeerr.InterpretDeleteError(err, qualifiedResource, name)
 	}
 
@@ -1237,7 +1285,8 @@ func (e *Store) Delete(ctx context.Context, name string, deleteValidation rest.V
 	// delete immediately, or no graceful deletion supported
 	klog.V(6).InfoS("Going to delete object from registry", "object", klog.KRef(genericapirequest.NamespaceValue(ctx), name))
 	out = e.NewFunc()
-	if err := e.Storage.Delete(ctx, key, out, &preconditions, storage.ValidateObjectFunc(deleteValidation), dryrun.IsDryRun(options.DryRun), nil, storage.DeleteOptions{}); err != nil {
+
+	if err := finalStore.Delete(ctx, key, out, &preconditions, storage.ValidateObjectFunc(deleteValidation), dryrun.IsDryRun(options.DryRun), nil, storage.DeleteOptions{}); err != nil {
 		// Please refer to the place where we set ignoreNotFound for the reason
 		// why we ignore the NotFound error .
 		if storage.IsNotFound(err) && ignoreNotFound && lastExisting != nil {
@@ -1490,7 +1539,15 @@ func (e *Store) WatchPredicate(ctx context.Context, p storage.SelectionPredicate
 		// optimization is skipped
 	}
 
-	w, err := e.Storage.Watch(ctx, key, storageOpts)
+	finalStore := e.Storage
+
+	if storage.ShouldKeyMoveToTheFastStorage(key) {
+		finalStore = e.FastStorage
+		sendEvents := true
+		storageOpts.SendInitialEvents = &sendEvents
+	}
+
+	w, err := finalStore.Watch(ctx, key, storageOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -1712,7 +1769,13 @@ func (e *Store) startObservingCount(period time.Duration, objectCountTracker flo
 	klog.V(2).InfoS("Monitoring resource count at path", "resource", resourceName, "path", "<storage-prefix>/"+prefix)
 	stopCh := make(chan struct{})
 	go wait.JitterUntil(func() {
-		count, err := e.Storage.Count(prefix)
+		finalStore := e.Storage
+
+		if storage.ShouldKeyMoveToTheFastStorage(prefix) {
+			finalStore = e.FastStorage
+		}
+
+		count, err := finalStore.Count(prefix)
 		if err != nil {
 			klog.V(5).InfoS("Failed to update storage count metric", "err", err)
 			count = -1
