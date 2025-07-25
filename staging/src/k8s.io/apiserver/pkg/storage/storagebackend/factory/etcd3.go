@@ -468,50 +468,59 @@ func newETCD3Storage(c storagebackend.ConfigForResource, newFunc, newListFunc fu
 	return store, destroyFunc, nil
 }
 
-func newFastETCD3Storage(c storagebackend.ConfigForResource, newFunc, newListFunc func() runtime.Object, resourcePrefix string) (storage.Interface, DestroyFunc, error) {
-	if len(c.FastStorage.Transport.ServerList) == 0 {
-		c.FastStorage = c.Config
-	}
+func newFastETCD3Storage(c storagebackend.ConfigForResource, newFunc, newListFunc func() runtime.Object, resourcePrefix string) ([]storage.Interface, []DestroyFunc, error) {
+	interfaces := make([]storage.Interface, len(c.FastStorage))
+	destroyFuncs := make([]DestroyFunc, len(c.FastStorage))
 
-	stopCompactor, err := startCompactorOnce(c.FastStorage.Transport, c.CompactionInterval)
-	if err != nil {
-		return nil, nil, err
-	}
+	for i, conf := range c.FastStorage {
+		if len(conf.Transport.ServerList) == 0 {
+			conf = c.Config
+		}
 
-	client, err := newETCD3Client(c.FastStorage.Transport)
-	if err != nil {
-		stopCompactor()
-		return nil, nil, err
-	}
+		stopCompactor, err := startCompactorOnce(conf.Transport, c.CompactionInterval)
+		if err != nil {
+			return nil, nil, err
+		}
 
-	// decorate the KV instance so we can track etcd latency per request.
-	client.KV = etcd3.NewETCDLatencyTracker(client.KV)
-
-	stopDBSizeMonitor, err := startDBSizeMonitorPerEndpoint(client.Client, c.DBMetricPollInterval)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var once sync.Once
-	destroyFunc := func() {
-		// we know that storage destroy funcs are called multiple times (due to reuse in subresources).
-		// Hence, we only destroy once.
-		// TODO: fix duplicated storage destroy calls higher level
-		once.Do(func() {
+		client, err := newETCD3Client(conf.Transport)
+		if err != nil {
 			stopCompactor()
-			stopDBSizeMonitor()
-			client.Close()
-		})
-	}
-	transformer := c.Transformer
-	if transformer == nil {
-		transformer = identity.NewEncryptCheckTransformer()
+			return nil, nil, err
+		}
+
+		// decorate the KV instance so we can track etcd latency per request.
+		client.KV = etcd3.NewETCDLatencyTracker(client.KV)
+
+		stopDBSizeMonitor, err := startDBSizeMonitorPerEndpoint(client.Client, c.DBMetricPollInterval)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		var once sync.Once
+		destroyFunc := func() {
+			// we know that storage destroy funcs are called multiple times (due to reuse in subresources).
+			// Hence, we only destroy once.
+			// TODO: fix duplicated storage destroy calls higher level
+			once.Do(func() {
+				stopCompactor()
+				stopDBSizeMonitor()
+				client.Close()
+			})
+		}
+		transformer := c.Transformer
+		if transformer == nil {
+			transformer = identity.NewEncryptCheckTransformer()
+		}
+
+		versioner := storage.APIObjectVersioner{}
+		decoder := etcd3.NewDefaultDecoder(c.Codec, versioner)
+		store := etcd3.New(client, c.Codec, newFunc, newListFunc, c.Prefix, resourcePrefix, c.GroupResource, transformer, c.LeaseManagerConfig, decoder, versioner)
+
+		interfaces[i] = store
+		destroyFuncs[i] = destroyFunc
 	}
 
-	versioner := storage.APIObjectVersioner{}
-	decoder := etcd3.NewDefaultDecoder(c.Codec, versioner)
-	store := etcd3.New(client, c.Codec, newFunc, newListFunc, c.Prefix, resourcePrefix, c.GroupResource, transformer, c.LeaseManagerConfig, decoder, versioner)
-	return store, destroyFunc, nil
+	return interfaces, destroyFuncs, nil
 }
 
 // startDBSizeMonitorPerEndpoint starts a loop to monitor etcd database size and update the

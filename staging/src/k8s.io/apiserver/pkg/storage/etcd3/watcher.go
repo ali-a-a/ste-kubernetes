@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"os"
 	"strconv"
 	"strings"
@@ -33,7 +34,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/features"
 	"k8s.io/apiserver/pkg/storage"
@@ -120,15 +120,20 @@ func (w *watcher) Watch(ctx context.Context, key string, rev int64, opts storage
 	// This goroutine pings the fast etcd and reestablishes the channel in case of failures.
 	go func() {
 		if opts.SendInitialEvents != nil && *opts.SendInitialEvents == true {
+			initRev, _ := w.getCurrentStorageRV(ctx)
+
 			for range time.Tick(watcherHeartBeat) {
-				resp, err := w.client.KV.Get(ctx, "compact_rev_key")
+				currRev, err := w.getCurrentStorageRV(ctx)
 				if err != nil {
 					continue
 				}
 
-				if resp != nil && len(resp.Kvs) == 0 {
-					wc.Stop()
+				if currRev < initRev {
+					// Tell the watcher that etcd has lost its rv, so sync your rv with the current rv.
+					wc.sendError(storage.NewTooLargeResourceVersionError(uint64(wc.initialRev), 0, int(wait.Jitter(1*time.Second, 3).Seconds())))
 				}
+
+				initRev = currRev
 			}
 		}
 	}()

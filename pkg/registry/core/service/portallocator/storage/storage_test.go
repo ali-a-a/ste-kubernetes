@@ -63,10 +63,10 @@ func newStorage(t *testing.T) (*etcd3testing.EtcdTestServer, portallocator.Inter
 		t.Fatalf("Couldn't create storage: %v", err)
 	}
 	destroyFunc := func() {
-		d()
+		d[0]()
 		server.Terminate(t)
 	}
-	return server, storage, backing, s, destroyFunc
+	return server, storage, backing, s[0], destroyFunc
 }
 
 func validNewRangeAllocation() *api.RangeAllocation {

@@ -46,6 +46,8 @@ const (
 type TransportConfig struct {
 	// ServerList is the list of storage servers to connect with.
 	ServerList []string
+	// ShardList is the list of shard servers to connect with.
+	ShardList []string
 	// TLS credentials
 	KeyFile       string
 	CertFile      string
@@ -98,7 +100,7 @@ type ConfigForResource struct {
 	// Config is the resource-independent configuration
 	Config
 	// FastStorage is the resource-independent configuration for the fast storage
-	FastStorage Config
+	FastStorage []Config
 	// GroupResource is the relevant one
 	GroupResource schema.GroupResource
 }

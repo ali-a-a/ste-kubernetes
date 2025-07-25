@@ -30,12 +30,17 @@ import (
 type DestroyFunc func()
 
 // Create creates a storage backend based on given config.
-func Create(c storagebackend.ConfigForResource, newFunc, newListFunc func() runtime.Object, resourcePrefix string) (storage.Interface, DestroyFunc, error) {
+func Create(c storagebackend.ConfigForResource, newFunc, newListFunc func() runtime.Object, resourcePrefix string) ([]storage.Interface, []DestroyFunc, error) {
 	switch c.Type {
 	case storagebackend.StorageTypeETCD2:
 		return nil, nil, fmt.Errorf("%s is no longer a supported storage backend", c.Type)
 	case storagebackend.StorageTypeUnset, storagebackend.StorageTypeETCD3:
-		return newETCD3Storage(c, newFunc, newListFunc, resourcePrefix)
+		inter, destroyFunc, err := newETCD3Storage(c, newFunc, newListFunc, resourcePrefix)
+
+		interfaces := []storage.Interface{inter}
+		destroyFuncs := []DestroyFunc{destroyFunc}
+
+		return interfaces, destroyFuncs, err
 	case storagebackend.StorageTypeFastETCD3:
 		return newFastETCD3Storage(c, newFunc, newListFunc, resourcePrefix)
 	default:

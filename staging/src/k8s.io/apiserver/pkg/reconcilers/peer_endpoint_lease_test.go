@@ -96,7 +96,7 @@ func TestPeerEndpointLeaseReconciler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating storage: %v", err)
 	}
-	t.Cleanup(dFunc)
+	t.Cleanup(dFunc[0])
 
 	tests := []struct {
 		testName     string
@@ -148,7 +148,7 @@ func TestPeerEndpointLeaseReconciler(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.testName, func(t *testing.T) {
-			fakeReconciler := NewFakePeerEndpointReconciler(t, s)
+			fakeReconciler := NewFakePeerEndpointReconciler(t, s[0])
 			err := fakeReconciler.SetKeys(test.servers)
 			if err != nil {
 				t.Errorf("unexpected error creating keys: %v", err)
@@ -203,7 +203,7 @@ func TestPeerLeaseRemoveEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating storage: %v", err)
 	}
-	t.Cleanup(dFunc)
+	t.Cleanup(dFunc[0])
 
 	stopTests := []struct {
 		testName         string
@@ -247,7 +247,7 @@ func TestPeerLeaseRemoveEndpoints(t *testing.T) {
 	}
 	for _, test := range stopTests {
 		t.Run(test.testName, func(t *testing.T) {
-			fakeReconciler := NewFakePeerEndpointReconciler(t, s)
+			fakeReconciler := NewFakePeerEndpointReconciler(t, s[0])
 			err := fakeReconciler.SetKeys(test.servers)
 			if err != nil {
 				t.Errorf("unexpected error creating keys: %v", err)

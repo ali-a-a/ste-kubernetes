@@ -93,7 +93,7 @@ func NewStorageFactoryConfig() *StorageFactoryConfig {
 // StorageFactoryConfig is a configuration for creating storage factory.
 type StorageFactoryConfig struct {
 	StorageConfig             storagebackend.Config
-	FastStorageConfig         storagebackend.Config
+	FastStorageConfig         []storagebackend.Config
 	APIResourceConfig         *serverstorage.ResourceConfig
 	DefaultResourceEncoding   *serverstorage.DefaultResourceEncodingConfig
 	DefaultStorageMediaType   string

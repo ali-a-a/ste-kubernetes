@@ -40,9 +40,9 @@ func TestPodLogValidates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	defer destroyFunc()
+	defer destroyFunc[0]()
 	store := &genericregistry.Store{
-		Storage: genericregistry.DryRunnableStorage{Storage: s},
+		Storage: genericregistry.DryRunnableStorage{Storage: s[0]},
 	}
 	logRest := &LogREST{Store: store, KubeletConn: nil}
 

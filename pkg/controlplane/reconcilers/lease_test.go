@@ -100,7 +100,7 @@ func TestLeaseEndpointReconciler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating storage: %v", err)
 	}
-	t.Cleanup(dFunc)
+	t.Cleanup(dFunc[0])
 
 	reconcileTests := []struct {
 		testName      string
@@ -341,7 +341,7 @@ func TestLeaseEndpointReconciler(t *testing.T) {
 	}
 	for _, test := range reconcileTests {
 		t.Run(test.testName, func(t *testing.T) {
-			fakeLeases := newFakeLeases(t, s)
+			fakeLeases := newFakeLeases(t, s[0])
 			err := fakeLeases.SetKeys(test.endpointKeys)
 			if err != nil {
 				t.Errorf("unexpected error creating keys: %v", err)
@@ -420,7 +420,7 @@ func TestLeaseEndpointReconciler(t *testing.T) {
 	}
 	for _, test := range nonReconcileTests {
 		t.Run(test.testName, func(t *testing.T) {
-			fakeLeases := newFakeLeases(t, s)
+			fakeLeases := newFakeLeases(t, s[0])
 			err := fakeLeases.SetKeys(test.endpointKeys)
 			if err != nil {
 				t.Errorf("unexpected error creating keys: %v", err)
@@ -464,7 +464,7 @@ func TestLeaseRemoveEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating storage: %v", err)
 	}
-	t.Cleanup(dFunc)
+	t.Cleanup(dFunc[0])
 
 	stopTests := []struct {
 		testName         string
@@ -530,7 +530,7 @@ func TestLeaseRemoveEndpoints(t *testing.T) {
 	}
 	for _, test := range stopTests {
 		t.Run(test.testName, func(t *testing.T) {
-			fakeLeases := newFakeLeases(t, s)
+			fakeLeases := newFakeLeases(t, s[0])
 			err := fakeLeases.SetKeys(test.endpointKeys)
 			if err != nil {
 				t.Errorf("unexpected error creating keys: %v", err)
@@ -591,7 +591,7 @@ func TestApiserverShutdown(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating storage: %v", err)
 	}
-	t.Cleanup(dFunc)
+	t.Cleanup(dFunc[0])
 
 	reconcileTests := []struct {
 		testName                string
@@ -651,7 +651,7 @@ func TestApiserverShutdown(t *testing.T) {
 	}
 	for _, test := range reconcileTests {
 		t.Run(test.testName, func(t *testing.T) {
-			fakeLeases := newFakeLeases(t, s)
+			fakeLeases := newFakeLeases(t, s[0])
 			err := fakeLeases.SetKeys(test.endpointKeys)
 			if err != nil {
 				t.Errorf("unexpected error creating keys: %v", err)

@@ -67,7 +67,7 @@ type DefaultStorageFactory struct {
 	// Its authentication information will be used for every storage.Interface returned.
 	StorageConfig storagebackend.Config
 
-	FastStorageConfig storagebackend.Config
+	FastStorageConfig []storagebackend.Config
 
 	Overrides map[schema.GroupResource]groupResourceOverrides
 

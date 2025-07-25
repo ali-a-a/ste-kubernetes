@@ -19,6 +19,7 @@ package watch
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"k8s.io/klog/v2"
 
@@ -47,6 +48,50 @@ type Interface interface {
 	// Closing the result channel tells the consumer that no more events will be
 	// sent.
 	ResultChan() <-chan Event
+}
+
+// MergedWatchChan merges all channels of different shards.
+type MergedWatchChan struct {
+	interfaces []Interface
+}
+
+// NewMergedWatchChan returns a new MergedWatchChan.
+func NewMergedWatchChan(interfaces []Interface) *MergedWatchChan {
+	return &MergedWatchChan{interfaces}
+}
+
+// ResultChan returns the merged channel.
+func (mw *MergedWatchChan) ResultChan() <-chan Event {
+	mergedChan := make(chan Event)
+
+	// In this implementation, termination of one channel would result in
+	// terminating all the channels and closing the merged channel. Using i,
+	// Whenever one of the channels closes, it decrements i atomically, stops all the channels,
+	// and closes the merged chan.
+	var i int32
+	atomic.StoreInt32(&i, 1)
+
+	for _, c := range mw.interfaces {
+		go func(c Interface) {
+			for v := range c.ResultChan() {
+				mergedChan <- v
+			}
+			if atomic.AddInt32(&i, -1) == 0 {
+				mw.Stop()
+				close(mergedChan)
+			}
+		}(c)
+	}
+
+	return mergedChan
+}
+
+// Stop stops all the channels multiplexed into the merged channel.
+// Note that double stop is safe.
+func (mw *MergedWatchChan) Stop() {
+	for _, inter := range mw.interfaces {
+		inter.Stop()
+	}
 }
 
 // EventType defines the possible types of events.

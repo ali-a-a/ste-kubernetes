@@ -2338,13 +2338,13 @@ func TestStoreDeleteCollectionWithWatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	defer watcher.Stop()
+	defer watcher[0].Stop()
 
 	if _, err := registry.DeleteCollection(testContext, rest.ValidateAllObjectFunc, nil, &metainternalversion.ListOptions{}); err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	got, open := <-watcher.ResultChan()
+	got, open := <-watcher[0].ResultChan()
 	if !open {
 		t.Errorf("Unexpected channel close")
 	} else {
@@ -2401,7 +2401,7 @@ func TestStoreWatch(t *testing.T) {
 			} else {
 				obj, err := registry.Create(testContext, podA, rest.ValidateAllObjectFunc, &metav1.CreateOptions{})
 				if err != nil {
-					got, open := <-wi.ResultChan()
+					got, open := <-wi[0].ResultChan()
 					if !open {
 						t.Errorf("%v: unexpected channel close", name)
 					} else {
@@ -2410,7 +2410,7 @@ func TestStoreWatch(t *testing.T) {
 						}
 					}
 				}
-				wi.Stop()
+				wi[0].Stop()
 			}
 		})
 	}
@@ -2430,12 +2430,12 @@ func newTestGenericStoreRegistry(t *testing.T, scheme *runtime.Scheme, hasCacheE
 		t.Fatalf("Error creating storage: %v", err)
 	}
 	destroyFunc := func() {
-		dFunc()
+		dFunc[0]()
 		server.Terminate(t)
 	}
 	if hasCacheEnabled {
 		config := cacherstorage.Config{
-			Storage:        s,
+			Storage:        s[0],
 			Versioner:      storage.APIObjectVersioner{},
 			GroupResource:  schema.GroupResource{Resource: "pods"},
 			ResourcePrefix: podPrefix,
@@ -2458,7 +2458,7 @@ func newTestGenericStoreRegistry(t *testing.T, scheme *runtime.Scheme, hasCacheE
 			}
 		}
 		d := destroyFunc
-		s = cacher
+		s[0] = cacher
 		destroyFunc = func() {
 			cacher.Stop()
 			d()
@@ -2496,7 +2496,7 @@ func newTestGenericStoreRegistry(t *testing.T, scheme *runtime.Scheme, hasCacheE
 				},
 			}
 		},
-		Storage: DryRunnableStorage{Storage: s},
+		Storage: DryRunnableStorage{Storage: s[0]},
 	}
 }
 

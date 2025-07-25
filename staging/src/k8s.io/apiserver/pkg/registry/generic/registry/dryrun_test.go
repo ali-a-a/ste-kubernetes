@@ -43,8 +43,8 @@ func NewDryRunnableTestStorage(t *testing.T) (DryRunnableStorage, func()) {
 	if err != nil {
 		t.Fatalf("Error creating storage: %v", err)
 	}
-	return DryRunnableStorage{Storage: s, Codec: sc.Codec}, func() {
-		destroy()
+	return DryRunnableStorage{Storage: s[0], Codec: sc.Codec}, func() {
+		destroy[0]()
 		server.Terminate(t)
 	}
 }

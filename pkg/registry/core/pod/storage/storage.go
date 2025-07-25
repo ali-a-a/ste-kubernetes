@@ -223,7 +223,12 @@ func (r *BindingREST) setPodHostAndAnnotations(ctx context.Context, podUID types
 		}
 	}
 
-	err = r.store.FastStorage.GuaranteedUpdate(ctx, podKey, &api.Pod{}, false, preconditions, storage.SimpleUpdate(func(obj runtime.Object) (runtime.Object, error) {
+	// TODO: find the index based on a hash function
+	index := int(podKey[len(podKey)-1]) % len(r.store.FastStorage)
+
+	finalStore := r.store.FastStorage[index]
+
+	err = finalStore.GuaranteedUpdate(ctx, podKey, &api.Pod{}, false, preconditions, storage.SimpleUpdate(func(obj runtime.Object) (runtime.Object, error) {
 		pod, ok := obj.(*api.Pod)
 		if !ok {
 			return nil, fmt.Errorf("unexpected object: %#v", obj)

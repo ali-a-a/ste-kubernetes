@@ -36,6 +36,18 @@ type StorageDecorator func(
 	trigger storage.IndexerFuncs,
 	indexers *cache.Indexers) (storage.Interface, factory.DestroyFunc, error)
 
+// FastStorageDecorator is a function signature for producing a storage.Interface
+// and an associated DestroyFunc from given parameters for the fast storage.
+type FastStorageDecorator func(
+	config *storagebackend.ConfigForResource,
+	resourcePrefix string,
+	keyFunc func(obj runtime.Object) (string, error),
+	newFunc func() runtime.Object,
+	newListFunc func() runtime.Object,
+	getAttrsFunc storage.AttrFunc,
+	trigger storage.IndexerFuncs,
+	indexers *cache.Indexers) ([]storage.Interface, []factory.DestroyFunc, error)
+
 // UndecoratedStorage returns the given a new storage from the given config
 // without any decoration.
 func UndecoratedStorage(
@@ -47,7 +59,9 @@ func UndecoratedStorage(
 	getAttrsFunc storage.AttrFunc,
 	trigger storage.IndexerFuncs,
 	indexers *cache.Indexers) (storage.Interface, factory.DestroyFunc, error) {
-	return NewRawStorage(config, newFunc, newListFunc, resourcePrefix)
+	interfaces, destroyFuns, err := NewRawStorage(config, newFunc, newListFunc, resourcePrefix)
+
+	return interfaces[0], destroyFuns[0], err
 }
 
 // UndecoratedFastStorage returns the given a new fast storage from the given config
@@ -60,7 +74,7 @@ func UndecoratedFastStorage(
 	newListFunc func() runtime.Object,
 	getAttrsFunc storage.AttrFunc,
 	trigger storage.IndexerFuncs,
-	indexers *cache.Indexers) (storage.Interface, factory.DestroyFunc, error) {
+	indexers *cache.Indexers) ([]storage.Interface, []factory.DestroyFunc, error) {
 	if config.Type == storagebackend.StorageTypeETCD3 || config.Type == storagebackend.StorageTypeUnset {
 		config.Type = storagebackend.StorageTypeFastETCD3
 
@@ -75,6 +89,6 @@ func UndecoratedFastStorage(
 // NewRawStorage creates the low level kv storage. This is a work-around for current
 // two layer of same storage interface.
 // TODO: Once cacher is enabled on all registries (event registry is special), we will remove this method.
-func NewRawStorage(config *storagebackend.ConfigForResource, newFunc, newListFunc func() runtime.Object, resourcePrefix string) (storage.Interface, factory.DestroyFunc, error) {
+func NewRawStorage(config *storagebackend.ConfigForResource, newFunc, newListFunc func() runtime.Object, resourcePrefix string) ([]storage.Interface, []factory.DestroyFunc, error) {
 	return factory.Create(*config, newFunc, newListFunc, resourcePrefix)
 }

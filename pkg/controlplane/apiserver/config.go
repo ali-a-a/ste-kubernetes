@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"net/http"
 	"time"
 
@@ -200,8 +201,14 @@ func BuildGenericConfig(
 	}
 
 	// Overwrite fast storage config
-	storageFactory.FastStorageConfig = storageFactory.StorageConfig
-	storageFactory.FastStorageConfig.Transport.ServerList = s.FastStorage.StorageConfig.Transport.ServerList
+	storageFactory.FastStorageConfig = make([]storagebackend.Config,
+		len(s.FastStorage.StorageConfig.Transport.ShardList))
+
+	for i, shard := range s.FastStorage.StorageConfig.Transport.ShardList {
+		storageFactory.FastStorageConfig[i] = storageFactory.StorageConfig
+		storageFactory.FastStorageConfig[i].Transport.ServerList = []string{shard}
+		storageFactory.FastStorageConfig[i].Transport.ShardList = s.FastStorage.StorageConfig.Transport.ShardList
+	}
 
 	// storageFactory.StorageConfig is copied from etcdOptions.StorageConfig,
 	// the StorageObjectCountTracker is still nil. Here we copy from genericConfig.

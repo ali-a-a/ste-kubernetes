@@ -222,7 +222,7 @@ type Store struct {
 
 	// FastStorage is the interface for accessing the fast but less
 	// reliable underlying storage.
-	FastStorage DryRunnableStorage
+	FastStorage []DryRunnableStorage
 
 	// StorageVersioner outputs the <group/version/kind> an object will be
 	// converted to before persisted in etcd, given a list of possible
@@ -421,7 +421,10 @@ func (e *Store) ListPredicate(ctx context.Context, p storage.SelectionPredicate,
 			finalStore := e.Storage
 
 			if storage.ShouldKeyMoveToTheFastStorage(key) {
-				finalStore = e.FastStorage
+				// TODO: find the index based on a hash function
+				index := int(key[len(key)-1]) % len(e.FastStorage)
+
+				finalStore = e.FastStorage[index]
 			}
 
 			storageOpts.Recursive = false
@@ -433,14 +436,20 @@ func (e *Store) ListPredicate(ctx context.Context, p storage.SelectionPredicate,
 
 	rootKey := e.KeyRootFunc(ctx)
 
-	finalStore := e.Storage
+	finalStores := []DryRunnableStorage{e.Storage}
 
 	if storage.ShouldKeyMoveToTheFastStorage(rootKey) {
-		finalStore = e.FastStorage
+		finalStores = e.FastStorage
 	}
 
-	err := finalStore.GetList(ctx, rootKey, storageOpts, list)
-	return list, storeerr.InterpretListError(err, qualifiedResource)
+	for _, finalStore := range finalStores {
+		err := finalStore.GetList(ctx, rootKey, storageOpts, list)
+		if err != nil {
+			return list, storeerr.InterpretListError(err, qualifiedResource)
+		}
+	}
+
+	return list, storeerr.InterpretListError(nil, qualifiedResource)
 }
 
 // finishNothing is a do-nothing FinishFunc.
@@ -552,7 +561,10 @@ func (e *Store) create(ctx context.Context, obj runtime.Object, createValidation
 	finalStore := e.Storage
 
 	if moveToFastStorage || storage.ShouldKeyMoveToTheFastStorage(key) {
-		finalStore = e.FastStorage
+		// TODO: index based on hash
+		index := int(key[len(key)-1]) % len(e.FastStorage)
+
+		finalStore = e.FastStorage[index]
 	}
 
 	if err := finalStore.Create(ctx, key, obj, out, ttl, dryrun.IsDryRun(options.DryRun)); err != nil {
@@ -627,7 +639,10 @@ func (e *Store) deleteWithoutFinalizers(ctx context.Context, name, key string, o
 	finalStore := e.Storage
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
-		finalStore = e.FastStorage
+		// TODO: find index based on the hash function
+		index := int(key[len(key)-1]) % len(e.FastStorage)
+
+		finalStore = e.FastStorage[index]
 	}
 
 	if err := finalStore.Delete(ctx, key, out, preconditions, rest.ValidateAllObjectFunc, dryrun.IsDryRun(options.DryRun), nil, storage.DeleteOptions{}); err != nil {
@@ -667,7 +682,10 @@ func (e *Store) Update(ctx context.Context, name string, objInfo rest.UpdatedObj
 	finalStore := e.Storage
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
-		finalStore = e.FastStorage
+		// TODO: index based on hash
+		index := int(key[len(key)-1]) % len(e.FastStorage)
+
+		finalStore = e.FastStorage[index]
 	}
 
 	qualifiedResource := e.qualifiedResourceFromContext(ctx)
@@ -896,7 +914,10 @@ func (e *Store) Get(ctx context.Context, name string, options *metav1.GetOptions
 	finalStore := e.Storage
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
-		finalStore = e.FastStorage
+		// TODO: index based on hash
+		index := int(key[len(key)-1]) % len(e.FastStorage)
+
+		finalStore = e.FastStorage[index]
 	}
 
 	if err := finalStore.Get(ctx, key, storage.GetOptions{ResourceVersion: options.ResourceVersion}, obj); err != nil {
@@ -1117,7 +1138,9 @@ func (e *Store) updateForGracefulDeletionAndFinalizers(ctx context.Context, name
 	finalStore := e.Storage
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
-		finalStore = e.FastStorage
+		index := int(key[len(key)-1]) % len(e.FastStorage)
+
+		finalStore = e.FastStorage[index]
 	}
 
 	err = finalStore.GuaranteedUpdate(
@@ -1213,7 +1236,10 @@ func (e *Store) Delete(ctx context.Context, name string, deleteValidation rest.V
 	finalStore := e.Storage
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
-		finalStore = e.FastStorage
+		// TODO: index based on hash
+		index := int(key[len(key)-1]) % len(e.FastStorage)
+
+		finalStore = e.FastStorage[index]
 	}
 
 	if err = finalStore.Get(ctx, key, storage.GetOptions{}, obj); err != nil {
@@ -1539,22 +1565,31 @@ func (e *Store) WatchPredicate(ctx context.Context, p storage.SelectionPredicate
 		// optimization is skipped
 	}
 
-	finalStore := e.Storage
+	finalStores := []DryRunnableStorage{e.Storage}
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
-		finalStore = e.FastStorage
+		finalStores = e.FastStorage
 		sendEvents := true
 		storageOpts.SendInitialEvents = &sendEvents
+		storageOpts.ResourceVersion = ""
 	}
 
-	w, err := finalStore.Watch(ctx, key, storageOpts)
-	if err != nil {
-		return nil, err
+	w := make([]watch.Interface, len(finalStores))
+	var err error
+
+	for i, finalStore := range finalStores {
+		w[i], err = finalStore.Watch(ctx, key, storageOpts)
+		if err != nil {
+			return nil, err
+		}
+		if e.Decorator != nil {
+			w[i] = newDecoratedWatcher(ctx, w[i], e.Decorator)
+		}
 	}
-	if e.Decorator != nil {
-		return newDecoratedWatcher(ctx, w, e.Decorator), nil
-	}
-	return w, nil
+
+	finalInterface := watch.NewMergedWatchChan(w)
+
+	return finalInterface, nil
 }
 
 // calculateTTL is a helper for retrieving the updated TTL for an object or
@@ -1707,9 +1742,8 @@ func (e *Store) CompleteWithOptions(options *generic.StoreOptions) error {
 		}
 	}
 
-	if e.Storage.Storage == nil || e.FastStorage.Storage == nil {
+	if e.Storage.Storage == nil || len(e.FastStorage) == 0 || e.FastStorage[0].Storage == nil {
 		e.Storage.Codec = opts.StorageConfig.Codec
-		e.FastStorage.Codec = opts.StorageConfig.Codec
 		var err error
 		e.Storage.Storage, e.DestroyFunc, err = opts.Decorator(
 			opts.StorageConfig,
@@ -1725,7 +1759,7 @@ func (e *Store) CompleteWithOptions(options *generic.StoreOptions) error {
 			return err
 		}
 
-		e.FastStorage.Storage, _, err = opts.FastDecorator(
+		interfaces, _, err := opts.FastDecorator(
 			opts.StorageConfig,
 			prefix,
 			keyFunc,
@@ -1735,6 +1769,14 @@ func (e *Store) CompleteWithOptions(options *generic.StoreOptions) error {
 			options.TriggerFunc,
 			options.Indexers,
 		)
+
+		e.FastStorage = make([]DryRunnableStorage, len(interfaces))
+
+		for i, inter := range interfaces {
+			e.FastStorage[i].Storage = inter
+			e.FastStorage[i].Codec = opts.StorageConfig.Codec
+		}
+
 		e.StorageVersioner = opts.StorageConfig.EncodeVersioner
 
 		if opts.CountMetricPollPeriod > 0 {
@@ -1769,21 +1811,27 @@ func (e *Store) startObservingCount(period time.Duration, objectCountTracker flo
 	klog.V(2).InfoS("Monitoring resource count at path", "resource", resourceName, "path", "<storage-prefix>/"+prefix)
 	stopCh := make(chan struct{})
 	go wait.JitterUntil(func() {
-		finalStore := e.Storage
+		finalStores := []DryRunnableStorage{e.Storage}
 
 		if storage.ShouldKeyMoveToTheFastStorage(prefix) {
-			finalStore = e.FastStorage
+			finalStores = e.FastStorage
+		}
+		
+		finalCount := int64(0)
+
+		for _, finalStore := range finalStores {
+			count, err := finalStore.Count(prefix)
+			if err != nil {
+				klog.V(5).InfoS("Failed to update storage count metric", "err", err)
+				count = -1
+			}
+
+			finalCount += count
 		}
 
-		count, err := finalStore.Count(prefix)
-		if err != nil {
-			klog.V(5).InfoS("Failed to update storage count metric", "err", err)
-			count = -1
-		}
-
-		metrics.UpdateObjectCount(resourceName, count)
+		metrics.UpdateObjectCount(resourceName, finalCount)
 		if objectCountTracker != nil {
-			objectCountTracker.Set(resourceName, count)
+			objectCountTracker.Set(resourceName, finalCount)
 		}
 	}, period, resourceCountPollPeriodJitter, true, stopCh)
 	return func() { close(stopCh) }

@@ -182,7 +182,10 @@ func (r *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 		finalStore := r.store.Storage
 
 		if storage.ShouldKeyMoveToTheFastStorage(key) {
-			finalStore = r.store.FastStorage
+			// TODO: find the index based on a hash function
+			index := int(key[len(key)-1]) % len(r.store.FastStorage)
+
+			finalStore = r.store.FastStorage[index]
 		}
 
 		out := r.store.NewFunc()

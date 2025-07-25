@@ -140,8 +140,8 @@ func NewLeases(config *storagebackend.ConfigForResource, baseKey string, leaseTi
 	}
 	var once sync.Once
 	return &storageLeases{
-		storage:   leaseStorage,
-		destroyFn: func() { once.Do(destroyFn) },
+		storage:   leaseStorage[0],
+		destroyFn: func() { once.Do(destroyFn[0]) },
 		baseKey:   baseKey,
 		leaseTime: leaseTime,
 	}, nil

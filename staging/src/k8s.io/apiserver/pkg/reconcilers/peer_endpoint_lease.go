@@ -87,8 +87,8 @@ func NewPeerEndpointLeaseReconciler(config *storagebackend.ConfigForResource, ba
 	var once sync.Once
 	return &peerEndpointLeaseReconciler{
 		serverLeases: &peerEndpointLeases{
-			storage:   leaseStorage,
-			destroyFn: func() { once.Do(destroyFn) },
+			storage:   leaseStorage[0],
+			destroyFn: func() { once.Do(destroyFn[0]) },
 			baseKey:   baseKey,
 			leaseTime: leaseTime,
 		},

@@ -46,10 +46,9 @@ var (
 type Etcd struct {
 	lock sync.Mutex
 
-	alloc       allocator.Snapshottable
-	storage     storage.Interface
-	fastStorage storage.Interface
-	last        string
+	alloc   allocator.Snapshottable
+	storage storage.Interface
+	last    string
 
 	baseKey  string
 	resource schema.GroupResource
@@ -79,19 +78,13 @@ func NewEtcd(alloc allocator.Snapshottable, baseKey string, config *storagebacke
 		}()
 	}
 
-	fastStorage, _, err := generic.NewRawStorage(config, nil, nil, "")
-	if err != nil {
-		return nil, err
-	}
-
 	var once sync.Once
 	return &Etcd{
-		alloc:       alloc,
-		storage:     storage,
-		fastStorage: fastStorage,
-		baseKey:     baseKey,
-		resource:    config.GroupResource,
-		destroyFn:   func() { once.Do(d) },
+		alloc:     alloc,
+		storage:   storage[0],
+		baseKey:   baseKey,
+		resource:  config.GroupResource,
+		destroyFn: func() { once.Do(d[0]) },
 	}, nil
 }
 
@@ -169,10 +162,6 @@ func (e *Etcd) ForEach(fn func(int)) {
 func (e *Etcd) tryUpdate(fn func() error) error {
 	finalStore := e.storage
 
-	if storage.ShouldKeyMoveToTheFastStorage(e.baseKey) {
-		finalStore = e.fastStorage
-	}
-
 	err := finalStore.GuaranteedUpdate(context.TODO(), e.baseKey, &api.RangeAllocation{}, true, nil,
 		storage.SimpleUpdate(func(input runtime.Object) (output runtime.Object, err error) {
 			existing := input.(*api.RangeAllocation)
@@ -205,10 +194,6 @@ func (e *Etcd) Get() (*api.RangeAllocation, error) {
 
 	finalStore := e.storage
 
-	if storage.ShouldKeyMoveToTheFastStorage(e.baseKey) {
-		finalStore = e.fastStorage
-	}
-
 	if err := finalStore.Get(context.TODO(), e.baseKey, storage.GetOptions{IgnoreNotFound: true}, existing); err != nil {
 		return nil, storeerr.InterpretGetError(err, e.resource, "")
 	}
@@ -222,10 +207,6 @@ func (e *Etcd) CreateOrUpdate(snapshot *api.RangeAllocation) error {
 	defer e.lock.Unlock()
 
 	finalStore := e.storage
-
-	if storage.ShouldKeyMoveToTheFastStorage(e.baseKey) {
-		finalStore = e.fastStorage
-	}
 
 	last := ""
 	err := finalStore.GuaranteedUpdate(context.TODO(), e.baseKey, &api.RangeAllocation{}, true, nil,

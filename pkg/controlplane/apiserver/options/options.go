@@ -208,6 +208,10 @@ func (s *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 	// Identify fast storage servers
 	fs.StringSliceVar(&s.FastStorage.StorageConfig.Transport.ServerList, "fast-storage-servers", s.FastStorage.StorageConfig.Transport.ServerList,
 		"List of fast storage servers to connect with (scheme://ip:port), comma separated.")
+
+	// Identify fast storage shards
+	fs.StringSliceVar(&s.FastStorage.StorageConfig.Transport.ShardList, "fast-storage-shards", s.FastStorage.StorageConfig.Transport.ShardList,
+		"List of fast storage shards to connect with (scheme://ip:port), comma separated.")
 }
 
 func (o *Options) Complete(ctx context.Context, fss cliflag.NamedFlagSets, alternateDNS []string, alternateIPs []net.IP) (CompletedOptions, error) {
