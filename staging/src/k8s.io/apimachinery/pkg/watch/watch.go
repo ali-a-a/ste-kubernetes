@@ -52,12 +52,13 @@ type Interface interface {
 
 // MergedWatchChan merges all channels of different shards.
 type MergedWatchChan struct {
-	interfaces []Interface
+	interfaces       []Interface
+	newInterfaceChan chan Interface
 }
 
 // NewMergedWatchChan returns a new MergedWatchChan.
-func NewMergedWatchChan(interfaces []Interface) *MergedWatchChan {
-	return &MergedWatchChan{interfaces}
+func NewMergedWatchChan(interfaces []Interface, newInterfaceChan chan Interface) *MergedWatchChan {
+	return &MergedWatchChan{interfaces, newInterfaceChan}
 }
 
 // ResultChan returns the merged channel.
@@ -81,6 +82,24 @@ func (mw *MergedWatchChan) ResultChan() <-chan Event {
 				close(mergedChan)
 			}
 		}(c)
+	}
+
+	// If a new interface can be added (via the channel), the merged watcher listens
+	// to the channel and receives new interfaces.
+	if mw.newInterfaceChan != nil {
+		go func() {
+			for newInterface := range mw.newInterfaceChan {
+				go func(c Interface) {
+					for v := range c.ResultChan() {
+						mergedChan <- v
+					}
+					if atomic.AddInt32(&i, -1) == 0 {
+						mw.Stop()
+						close(mergedChan)
+					}
+				}(newInterface)
+			}
+		}()
 	}
 
 	return mergedChan

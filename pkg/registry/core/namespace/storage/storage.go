@@ -19,7 +19,6 @@ package storage
 import (
 	"context"
 	"fmt"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -182,7 +181,7 @@ func (r *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 		finalStore := r.store.Storage
 
 		if storage.ShouldKeyMoveToTheFastStorage(key) {
-			// TODO: find the index based on a hash function
+			// TODO: find the index based on consistent hashing
 			index := int(key[len(key)-1]) % len(r.store.FastStorage)
 
 			finalStore = r.store.FastStorage[index]

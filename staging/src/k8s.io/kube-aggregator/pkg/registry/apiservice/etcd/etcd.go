@@ -40,6 +40,7 @@ type REST struct {
 // NewREST returns a RESTStorage object that will work against API services.
 func NewREST(scheme *runtime.Scheme, optsGetter generic.RESTOptionsGetter) *REST {
 	strategy := apiservice.NewStrategy(scheme)
+	options := &generic.StoreOptions{RESTOptions: optsGetter, AttrFunc: apiservice.GetAttrs}
 	store := &genericregistry.Store{
 		NewFunc:                   func() runtime.Object { return &apiregistration.APIService{} },
 		NewListFunc:               func() runtime.Object { return &apiregistration.APIServiceList{} },
@@ -55,7 +56,7 @@ func NewREST(scheme *runtime.Scheme, optsGetter generic.RESTOptionsGetter) *REST
 		// TODO: define table converter that exposes more than name/creation timestamp
 		TableConvertor: rest.NewDefaultTableConvertor(apiregistration.Resource("apiservices")),
 	}
-	options := &generic.StoreOptions{RESTOptions: optsGetter, AttrFunc: apiservice.GetAttrs}
+
 	if err := store.CompleteWithOptions(options); err != nil {
 		panic(err) // TODO: Propagate error up
 	}

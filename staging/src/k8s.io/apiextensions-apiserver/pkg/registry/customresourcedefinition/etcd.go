@@ -19,7 +19,6 @@ package customresourcedefinition
 import (
 	"context"
 	"fmt"
-
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,6 +41,8 @@ type REST struct {
 func NewREST(scheme *runtime.Scheme, optsGetter generic.RESTOptionsGetter) (*REST, error) {
 	strategy := NewStrategy(scheme)
 
+	options := &generic.StoreOptions{RESTOptions: optsGetter, AttrFunc: GetAttrs}
+
 	store := &genericregistry.Store{
 		NewFunc:                   func() runtime.Object { return &apiextensions.CustomResourceDefinition{} },
 		NewListFunc:               func() runtime.Object { return &apiextensions.CustomResourceDefinitionList{} },
@@ -57,7 +58,7 @@ func NewREST(scheme *runtime.Scheme, optsGetter generic.RESTOptionsGetter) (*RES
 		// TODO: define table converter that exposes more than name/creation timestamp
 		TableConvertor: rest.NewDefaultTableConvertor(apiextensions.Resource("customresourcedefinitions")),
 	}
-	options := &generic.StoreOptions{RESTOptions: optsGetter, AttrFunc: GetAttrs}
+
 	if err := store.CompleteWithOptions(options); err != nil {
 		return nil, err
 	}
@@ -129,7 +130,7 @@ func (r *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 		finalStore := r.Store.Storage
 
 		if storage.ShouldKeyMoveToTheFastStorage(key) {
-			// TODO: find the index based on a hash function
+			// TODO: find the index based on consistent hashing
 			index := int(key[len(key)-1]) % len(r.Store.FastStorage)
 
 			finalStore = r.Store.FastStorage[index]

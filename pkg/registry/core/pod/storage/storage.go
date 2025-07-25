@@ -19,9 +19,6 @@ package storage
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"net/url"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,6 +31,7 @@ import (
 	storeerr "k8s.io/apiserver/pkg/storage/errors"
 	"k8s.io/apiserver/pkg/util/dryrun"
 	policyclient "k8s.io/client-go/kubernetes/typed/policy/v1"
+	"k8s.io/klog/v2"
 	podutil "k8s.io/kubernetes/pkg/api/pod"
 	api "k8s.io/kubernetes/pkg/apis/core"
 	"k8s.io/kubernetes/pkg/apis/core/validation"
@@ -43,7 +41,17 @@ import (
 	printerstorage "k8s.io/kubernetes/pkg/printers/storage"
 	registrypod "k8s.io/kubernetes/pkg/registry/core/pod"
 	podrest "k8s.io/kubernetes/pkg/registry/core/pod/rest"
+	"net/http"
+	"net/url"
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
+)
+
+const (
+	// TODO: Make the port configurable
+	// The protocol to connect to the dynamically added shard.
+	newShardProtocol = "https://"
+	// The port to connect to the dynamically added shard.
+	newShardPort = ":2279"
 )
 
 // PodStorage includes storage for pods and all sub resources
@@ -69,8 +77,7 @@ type REST struct {
 }
 
 // NewStorage returns a RESTStorage object that will work against pods.
-func NewStorage(optsGetter generic.RESTOptionsGetter, k client.ConnectionInfoGetter, proxyTransport http.RoundTripper, podDisruptionBudgetClient policyclient.PodDisruptionBudgetsGetter) (PodStorage, error) {
-
+func NewStorage(nodePodStorageChan chan string, optsGetter generic.RESTOptionsGetter, k client.ConnectionInfoGetter, proxyTransport http.RoundTripper, podDisruptionBudgetClient policyclient.PodDisruptionBudgetsGetter) (PodStorage, error) {
 	store := &genericregistry.Store{
 		NewFunc:                   func() runtime.Object { return &api.Pod{} },
 		NewListFunc:               func() runtime.Object { return &api.PodList{} },
@@ -83,6 +90,7 @@ func NewStorage(optsGetter generic.RESTOptionsGetter, k client.ConnectionInfoGet
 		DeleteStrategy:      registrypod.Strategy,
 		ResetFieldsStrategy: registrypod.Strategy,
 		ReturnDeletedObject: true,
+		NodePodStorageChan:  nodePodStorageChan,
 
 		TableConvertor: printerstorage.TableConvertor{TableGenerator: printers.NewTableGenerator().With(printersinternal.AddHandlers)},
 	}
@@ -105,6 +113,42 @@ func NewStorage(optsGetter generic.RESTOptionsGetter, k client.ConnectionInfoGet
 	resizeStore.UpdateStrategy = registrypod.ResizeStrategy
 
 	bindingREST := &BindingREST{store: store}
+
+	// This goroutine listens on the node storage channel
+	// and adds the new shard when a new node joins the cluster.
+	go func() {
+		for newShard := range nodePodStorageChan {
+			options.NewShardAddr = newShardProtocol + newShard + newShardPort
+
+			// Add the new shard to the list of fast storage.
+			// This call won't affect current connections to other storage instances.
+			err := store.CompleteWithOptions(options)
+			if err != nil {
+				klog.Errorf("error from CompleteWithOptions: %s", err.Error())
+			}
+
+			err = statusStore.CompleteWithOptions(options)
+			if err != nil {
+				klog.Errorf("error from CompleteWithOptions: %s", err.Error())
+			}
+
+			err = ephemeralContainersStore.CompleteWithOptions(options)
+			if err != nil {
+				klog.Errorf("error from CompleteWithOptions: %s", err.Error())
+			}
+
+			err = resizeStore.CompleteWithOptions(options)
+			if err != nil {
+				klog.Errorf("error from CompleteWithOptions: %s", err.Error())
+			}
+
+			// Notify all the watchers about the new shard
+			for _, channel := range store.NewStorageChan {
+				channel <- store.FastStorage[len(store.FastStorage)-1]
+			}
+		}
+	}()
+
 	return PodStorage{
 		Pod:                 &REST{store, proxyTransport},
 		Binding:             &BindingREST{store: store},

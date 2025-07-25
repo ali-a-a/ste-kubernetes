@@ -43,6 +43,7 @@ type CustomResourceStorage struct {
 
 func NewStorage(resource schema.GroupResource, singularResource schema.GroupResource, kind, listKind schema.GroupVersionKind, strategy customResourceStrategy, optsGetter generic.RESTOptionsGetter, categories []string, tableConvertor rest.TableConvertor, replicasPathMapping managedfields.ResourcePathMappings) CustomResourceStorage {
 	var storage CustomResourceStorage
+	options := &generic.StoreOptions{RESTOptions: optsGetter, AttrFunc: strategy.GetAttrs}
 	store := &genericregistry.Store{
 		NewFunc: func() runtime.Object {
 			// set the expected group/version/kind in the new object as a signal to the versioning decoder
@@ -67,7 +68,7 @@ func NewStorage(resource schema.GroupResource, singularResource schema.GroupReso
 
 		TableConvertor: tableConvertor,
 	}
-	options := &generic.StoreOptions{RESTOptions: optsGetter, AttrFunc: strategy.GetAttrs}
+
 	if err := store.CompleteWithOptions(options); err != nil {
 		panic(err) // TODO: Propagate error up
 	}

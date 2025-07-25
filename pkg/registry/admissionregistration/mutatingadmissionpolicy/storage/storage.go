@@ -41,6 +41,7 @@ var groupResource = admissionregistration.Resource("mutatingadmissionpolicies")
 func NewREST(optsGetter generic.RESTOptionsGetter, authorizer authorizer.Authorizer, resourceResolver resolver.ResourceResolver) (*REST, error) {
 	r := &REST{}
 	strategy := mutatingadmissionpolicy.NewStrategy(authorizer, resourceResolver)
+	options := &generic.StoreOptions{RESTOptions: optsGetter}
 	store := &genericregistry.Store{
 		NewFunc:     func() runtime.Object { return &admissionregistration.MutatingAdmissionPolicy{} },
 		NewListFunc: func() runtime.Object { return &admissionregistration.MutatingAdmissionPolicyList{} },
@@ -56,7 +57,7 @@ func NewREST(optsGetter generic.RESTOptionsGetter, authorizer authorizer.Authori
 
 		TableConvertor: printerstorage.TableConvertor{TableGenerator: printers.NewTableGenerator().With(printersinternal.AddHandlers)},
 	}
-	options := &generic.StoreOptions{RESTOptions: optsGetter}
+
 	if err := store.CompleteWithOptions(options); err != nil {
 		return nil, err
 	}

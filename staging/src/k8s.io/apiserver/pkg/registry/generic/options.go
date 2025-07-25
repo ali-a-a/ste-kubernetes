@@ -58,4 +58,6 @@ type StoreOptions struct {
 	TriggerFunc storage.IndexerFuncs
 	AttrFunc    storage.AttrFunc
 	Indexers    *cache.Indexers
+
+	NewShardAddr string
 }

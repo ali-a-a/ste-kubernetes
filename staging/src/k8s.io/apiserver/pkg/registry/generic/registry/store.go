@@ -19,6 +19,7 @@ package registry
 import (
 	"context"
 	"fmt"
+	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"strings"
 	"sync"
 	"time"
@@ -52,6 +53,8 @@ import (
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	flowcontrolrequest "k8s.io/apiserver/pkg/util/flowcontrol/request"
 	"k8s.io/client-go/tools/cache"
+
+	api "k8s.io/kubernetes/pkg/apis/core"
 
 	"k8s.io/klog/v2"
 )
@@ -240,6 +243,9 @@ type Store struct {
 	// be prepared for being called more than once.
 	DestroyFunc func()
 
+	NodePodStorageChan chan string
+	NewStorageChan     []chan DryRunnableStorage
+
 	// corruptObjDeleter implements unsafe deletion flow to enable deletion
 	// of corrupt object(s), it makes an attempt to perform a normal
 	// deletion flow first, and if the normal deletion flow fails with a
@@ -421,7 +427,7 @@ func (e *Store) ListPredicate(ctx context.Context, p storage.SelectionPredicate,
 			finalStore := e.Storage
 
 			if storage.ShouldKeyMoveToTheFastStorage(key) {
-				// TODO: find the index based on a hash function
+				// TODO: find the index based on a consistent hashing
 				index := int(key[len(key)-1]) % len(e.FastStorage)
 
 				finalStore = e.FastStorage[index]
@@ -515,6 +521,12 @@ func (e *Store) create(ctx context.Context, obj runtime.Object, createValidation
 		}
 	}
 
+	// if a new node is added, notify the pod storage about the new storage shard located on this worker node.
+	node, ok := obj.(*api.Node)
+	if ok {
+		e.NodePodStorageChan <- node.Status.Addresses[0].Address
+	}
+
 	if e.BeginCreate != nil {
 		fn, err := e.BeginCreate(ctx, obj, options)
 		if err != nil {
@@ -561,7 +573,7 @@ func (e *Store) create(ctx context.Context, obj runtime.Object, createValidation
 	finalStore := e.Storage
 
 	if moveToFastStorage || storage.ShouldKeyMoveToTheFastStorage(key) {
-		// TODO: index based on hash
+		// TODO: index based on consistent hashing
 		index := int(key[len(key)-1]) % len(e.FastStorage)
 
 		finalStore = e.FastStorage[index]
@@ -639,7 +651,7 @@ func (e *Store) deleteWithoutFinalizers(ctx context.Context, name, key string, o
 	finalStore := e.Storage
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
-		// TODO: find index based on the hash function
+		// TODO: find index based on consistent hashing
 		index := int(key[len(key)-1]) % len(e.FastStorage)
 
 		finalStore = e.FastStorage[index]
@@ -682,7 +694,7 @@ func (e *Store) Update(ctx context.Context, name string, objInfo rest.UpdatedObj
 	finalStore := e.Storage
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
-		// TODO: index based on hash
+		// TODO: index based on consistent hashing
 		index := int(key[len(key)-1]) % len(e.FastStorage)
 
 		finalStore = e.FastStorage[index]
@@ -914,7 +926,7 @@ func (e *Store) Get(ctx context.Context, name string, options *metav1.GetOptions
 	finalStore := e.Storage
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
-		// TODO: index based on hash
+		// TODO: index based on consistent hashing
 		index := int(key[len(key)-1]) % len(e.FastStorage)
 
 		finalStore = e.FastStorage[index]
@@ -1138,6 +1150,7 @@ func (e *Store) updateForGracefulDeletionAndFinalizers(ctx context.Context, name
 	finalStore := e.Storage
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
+		// TODO: consistent hashing
 		index := int(key[len(key)-1]) % len(e.FastStorage)
 
 		finalStore = e.FastStorage[index]
@@ -1236,7 +1249,7 @@ func (e *Store) Delete(ctx context.Context, name string, deleteValidation rest.V
 	finalStore := e.Storage
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
-		// TODO: index based on hash
+		// TODO: index based on consistent hashing
 		index := int(key[len(key)-1]) % len(e.FastStorage)
 
 		finalStore = e.FastStorage[index]
@@ -1587,7 +1600,33 @@ func (e *Store) WatchPredicate(ctx context.Context, p storage.SelectionPredicate
 		}
 	}
 
-	finalInterface := watch.NewMergedWatchChan(w)
+	newInterfaceChan := chan watch.Interface(nil)
+
+	if storage.ShouldKeyMoveToTheFastStorage(key) {
+		newInterfaceChan = make(chan watch.Interface)
+
+		newNewStorageChan := make(chan DryRunnableStorage)
+		e.NewStorageChan = append(e.NewStorageChan, newNewStorageChan)
+
+		// Watch on the new storage when it is added to the cluster.
+		go func() {
+			for latestFastStorage := range newNewStorageChan {
+				newW, err := latestFastStorage.Watch(ctx, key, storageOpts)
+				if err != nil {
+					klog.Errorf("cannot watch the new storage: %s", err.Error())
+				}
+
+				if e.Decorator != nil {
+					newW = newDecoratedWatcher(ctx, newW, e.Decorator)
+				}
+
+				// Send the new interface to the merged watcher
+				newInterfaceChan <- newW
+			}
+		}()
+	}
+
+	finalInterface := watch.NewMergedWatchChan(w, newInterfaceChan)
 
 	return finalInterface, nil
 }
@@ -1742,6 +1781,32 @@ func (e *Store) CompleteWithOptions(options *generic.StoreOptions) error {
 		}
 	}
 
+	// If there is a new shard, establish the connection to the new shard
+	// and add it to the list of fast storage
+	if options.NewShardAddr != "" && len(e.FastStorage) != 0 {
+		fastStorageConfig := opts.StorageConfig.FastStorage[0]
+		fastStorageConfig.Transport.ShardList = []string{options.NewShardAddr}
+		fastStorageConfig.Transport.ServerList = []string{options.NewShardAddr}
+
+		opts.StorageConfig.FastStorage = []storagebackend.Config{fastStorageConfig}
+
+		interfaces, _, _ := opts.FastDecorator(
+			opts.StorageConfig,
+			prefix,
+			keyFunc,
+			e.NewFunc,
+			e.NewListFunc,
+			attrFunc,
+			options.TriggerFunc,
+			options.Indexers,
+		)
+
+		e.FastStorage = append(e.FastStorage, DryRunnableStorage{})
+
+		e.FastStorage[len(e.FastStorage)-1].Storage = interfaces[0]
+		e.FastStorage[len(e.FastStorage)-1].Codec = opts.StorageConfig.Codec
+	}
+
 	if e.Storage.Storage == nil || len(e.FastStorage) == 0 || e.FastStorage[0].Storage == nil {
 		e.Storage.Codec = opts.StorageConfig.Codec
 		var err error
@@ -1816,7 +1881,7 @@ func (e *Store) startObservingCount(period time.Duration, objectCountTracker flo
 		if storage.ShouldKeyMoveToTheFastStorage(prefix) {
 			finalStores = e.FastStorage
 		}
-		
+
 		finalCount := int64(0)
 
 		for _, finalStore := range finalStores {

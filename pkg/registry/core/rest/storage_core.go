@@ -183,12 +183,15 @@ func (p *legacyProvider) NewRESTStorage(apiResourceConfigSource serverstorage.AP
 		return genericapiserver.APIGroupInfo{}, err
 	}
 
-	nodeStorage, err := nodestore.NewStorage(restOptionsGetter, p.Proxy.KubeletClientConfig, p.Proxy.Transport)
+	nodePodStorageChan := make(chan string)
+
+	nodeStorage, err := nodestore.NewStorage(nodePodStorageChan, restOptionsGetter, p.Proxy.KubeletClientConfig, p.Proxy.Transport)
 	if err != nil {
 		return genericapiserver.APIGroupInfo{}, err
 	}
 
 	podStorage, err := podstore.NewStorage(
+		nodePodStorageChan,
 		restOptionsGetter,
 		nodeStorage.KubeletConnectionInfo,
 		p.Proxy.Transport,

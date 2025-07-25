@@ -29,6 +29,8 @@ import (
 func NewREST(scheme *runtime.Scheme, optsGetter generic.RESTOptionsGetter) (*registry.REST, error) {
 	strategy := NewStrategy(scheme)
 
+	options := &generic.StoreOptions{RESTOptions: optsGetter, AttrFunc: GetAttrs}
+
 	store := &genericregistry.Store{
 		NewFunc:                   func() runtime.Object { return &wardle.Fischer{} },
 		NewListFunc:               func() runtime.Object { return &wardle.FischerList{} },
@@ -43,7 +45,6 @@ func NewREST(scheme *runtime.Scheme, optsGetter generic.RESTOptionsGetter) (*reg
 		// TODO: define table converter that exposes more than name/creation timestamp
 		TableConvertor: rest.NewDefaultTableConvertor(wardle.Resource("fischers")),
 	}
-	options := &generic.StoreOptions{RESTOptions: optsGetter, AttrFunc: GetAttrs}
 	if err := store.CompleteWithOptions(options); err != nil {
 		return nil, err
 	}
