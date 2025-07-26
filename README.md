@@ -31,3 +31,11 @@ Main modifications are made in these commits:
 * <a href="https://github.com/ali-a-a/ste-kubernetes/commit/fbfa1558d5a1aa8f3be68ee4c5b98f4ad6dd1039">fbfa155</a> - Add dynamic shard provisioning
 * <a href="https://github.com/ali-a-a/ste-kubernetes/commit/9b11bb58a9fbe2f71abb846e41cdd059b36814b2">9b11bb5</a> - Add consistent hashing
 * <a href="https://github.com/ali-a-a/ste-kubernetes/commit/452659fe70f2ac8c5e06afb2bce65f63fad10698">452659f</a> - Support deletion from the ring
+
+## Getting the code
+
+The code can be downloaded by cloning the repository:
+```bash
+git clone https://github.com/ali-a-a/ste-kubernetes.git
+```
+
