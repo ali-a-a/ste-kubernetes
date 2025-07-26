@@ -29,9 +29,3 @@ Main modifications are made in these commits:
 * <a href="https://github.com/ali-a-a/ste-kubernetes/commit/eaab8a75bfa52d2dc35dfad31b901d84fec142a6">eaab8a7</a> - Forward pods to the second storage
 * <a href="https://github.com/ali-a-a/ste-kubernetes/commit/327f421140e26cb1a0b92eb472a2c0cc083dcb72">327f421</a> - Add sharding
 * <a href="https://github.com/ali-a-a/ste-kubernetes/commit/fbfa1558d5a1aa8f3be68ee4c5b98f4ad6dd1039">fbfa155</a> - Add dynamic shard provisioning
-
-  
-
-  
-
-
