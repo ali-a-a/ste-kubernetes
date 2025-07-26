@@ -532,7 +532,11 @@ func (e *Store) create(ctx context.Context, obj runtime.Object, createValidation
 	// if a new node is added, notify the pod storage about the new storage shard located on this worker node.
 	node, ok := obj.(*api.Node)
 	if ok {
-		e.NodePodStorageChan <- node.Status.Addresses[0].Address
+		if len(node.Status.Addresses) == 0 {
+			e.NodePodStorageChan <- api.DefaultNodeAddress
+		} else {
+			e.NodePodStorageChan <- node.Status.Addresses[0].Address
+		}
 	}
 
 	if e.BeginCreate != nil {
