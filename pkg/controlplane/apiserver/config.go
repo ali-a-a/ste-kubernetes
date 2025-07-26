@@ -195,7 +195,6 @@ func BuildGenericConfig(
 	storageFactoryConfig.APIResourceConfig = genericConfig.MergedResourceConfig
 	storageFactoryConfig.DefaultResourceEncoding.SetEffectiveVersion(genericConfig.EffectiveVersion)
 	storageFactory, lastErr = storageFactoryConfig.Complete(s.Etcd).New()
-
 	if lastErr != nil {
 		return
 	}
@@ -204,6 +203,7 @@ func BuildGenericConfig(
 	storageFactory.FastStorageConfig = make([]storagebackend.Config,
 		len(s.FastStorage.StorageConfig.Transport.ShardList))
 
+	// Fill out shards based on the fast storage shard flag
 	for i, shard := range s.FastStorage.StorageConfig.Transport.ShardList {
 		storageFactory.FastStorageConfig[i] = storageFactory.StorageConfig
 		storageFactory.FastStorageConfig[i].Transport.ServerList = []string{shard}
