@@ -6,7 +6,7 @@ openssl genrsa -out /etc/ste-kubernetes/pki/ca.key 2048
 # Create a new certificate signing request
 openssl req -new -key /etc/ste-kubernetes/pki/ca.key -subj "/CN=KUBERNETES-CA/O=Kubernetes" -out /etc/ste-kubernetes/pki/ca.csr
 # Generate the certificate using the private key
-openssl x509 -req -in /etc/ste-kubernetes/pki/ca.csr -signkey /etc/ste-kubernetes/pki/ca.key -CAcreateserial -out /etc/ste-kubernetes/pki/ca.crt -days 1000
+openssl x509 -req -in /etc/ste-kubernetes/pki/ca.csr -signkey /etc/ste-kubernetes/pki/ca.key -out /etc/ste-kubernetes/pki/ca.crt -days 1000
 
 # Create a private key for the admin
 openssl genrsa -out /etc/ste-kubernetes/pki/admin.key 2048
@@ -133,10 +133,21 @@ openssl genrsa -out /etc/ste-kubernetes/pki/front-proxy-ca.key 2048
 # Generate the front proxy CA certificate using the private key
 openssl req -x509 -new -nodes -key /etc/ste-kubernetes/pki/front-proxy-ca.key -subj "/CN=front-proxy-ca/O=Kubernetes" -days 10000 -out /etc/ste-kubernetes/pki/front-proxy-ca.crt
 
+bash -c "cat > /etc/ste-kubernetes/pki/openssl-front-proxy.cnf <<EOF
+[req]
+req_extensions = v3_req
+distinguished_name = req_distinguished_name
+[req_distinguished_name]
+[v3_req]
+basicConstraints = critical, CA:FALSE
+keyUsage = critical, nonRepudiation, digitalSignature, keyEncipherment
+extendedKeyUsage = clientAuth
+EOF"
+
 # Create a private key for the front proxy
 openssl genrsa -out /etc/ste-kubernetes/pki/front-proxy-client.key 2048
 # Create a new certificate signing request
 openssl req -new -key /etc/ste-kubernetes/pki/front-proxy-client.key -subj "/CN=front-proxy-client/O=Kubernetes" -out /etc/ste-kubernetes/pki/front-proxy-client.csr
 # Generate the front proxy certificate using the private key
 openssl x509 -req -in /etc/ste-kubernetes/pki/front-proxy-client.csr -CA /etc/ste-kubernetes/pki/front-proxy-ca.crt -CAkey /etc/ste-kubernetes/pki/front-proxy-ca.key -CAcreateserial \
-  -out /etc/ste-kubernetes/pki/front-proxy-client.crt -days 10000 -extensions v3_req
+  -out /etc/ste-kubernetes/pki/front-proxy-client.crt -days 10000 -extensions v3_req -extfile /etc/ste-kubernetes/pki/openssl-front-proxy.cnf
