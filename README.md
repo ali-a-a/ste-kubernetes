@@ -20,3 +20,11 @@
   ### Built By Modifying
   <a href="https://github.com/kubernetes/kubernetes">Kubernetes</a>
 </div>
+
+## Software implementation
+
+Main modifications are made in these commits:
+
+* <a href="https://github.com/ali-a-a/ste-kubernetes/commit/72d086e53f8090a8318eaf21ff4499350fd57e12">72d086e</a>: Add the second storage
+
+
