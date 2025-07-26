@@ -527,6 +527,9 @@ github.com/robfig/cron/v3
 # github.com/russross/blackfriday/v2 v2.1.0
 ## explicit
 github.com/russross/blackfriday/v2
+# github.com/serialx/hashring v0.0.0-20200727003509-22c0c7ab6b1b
+## explicit
+github.com/serialx/hashring
 # github.com/sirupsen/logrus v1.9.3
 ## explicit; go 1.13
 github.com/sirupsen/logrus

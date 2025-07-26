@@ -89,6 +89,10 @@ func (mw *MergedWatchChan) ResultChan() <-chan Event {
 	if mw.newInterfaceChan != nil {
 		go func() {
 			for newInterface := range mw.newInterfaceChan {
+				// Add the new interface to the list of interfaces.
+				mw.interfaces = append(mw.interfaces, newInterface)
+
+				// Listen on the new interface as well.
 				go func(c Interface) {
 					for v := range c.ResultChan() {
 						mergedChan <- v

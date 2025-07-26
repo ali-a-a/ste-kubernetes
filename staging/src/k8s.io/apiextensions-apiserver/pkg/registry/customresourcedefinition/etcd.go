@@ -29,6 +29,7 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 	storageerr "k8s.io/apiserver/pkg/storage/errors"
 	"k8s.io/apiserver/pkg/util/dryrun"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
 )
 
@@ -130,10 +131,12 @@ func (r *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 		finalStore := r.Store.Storage
 
 		if storage.ShouldKeyMoveToTheFastStorage(key) {
-			// TODO: find the index based on consistent hashing
-			index := int(key[len(key)-1]) % len(r.Store.FastStorage)
+			node, found := r.Store.FastStorageRing.GetNode(key)
+			if !found {
+				klog.Errorf("Delete: node is not found in the ring for key %s", key)
+			}
 
-			finalStore = r.Store.FastStorage[index]
+			finalStore = r.Store.FastStorage[node]
 		}
 
 		err = finalStore.GuaranteedUpdate(

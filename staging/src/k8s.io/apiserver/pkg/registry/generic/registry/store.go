@@ -19,6 +19,7 @@ package registry
 import (
 	"context"
 	"fmt"
+	"github.com/serialx/hashring"
 	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"strings"
 	"sync"
@@ -225,7 +226,8 @@ type Store struct {
 
 	// FastStorage is the interface for accessing the fast but less
 	// reliable underlying storage.
-	FastStorage []DryRunnableStorage
+	FastStorage map[string]DryRunnableStorage
+	//FastStorage []DryRunnableInfo
 
 	// StorageVersioner outputs the <group/version/kind> an object will be
 	// converted to before persisted in etcd, given a list of possible
@@ -245,6 +247,8 @@ type Store struct {
 
 	NodePodStorageChan chan string
 	NewStorageChan     []chan DryRunnableStorage
+
+	FastStorageRing *hashring.HashRing
 
 	// corruptObjDeleter implements unsafe deletion flow to enable deletion
 	// of corrupt object(s), it makes an attempt to perform a normal
@@ -427,10 +431,12 @@ func (e *Store) ListPredicate(ctx context.Context, p storage.SelectionPredicate,
 			finalStore := e.Storage
 
 			if storage.ShouldKeyMoveToTheFastStorage(key) {
-				// TODO: find the index based on a consistent hashing
-				index := int(key[len(key)-1]) % len(e.FastStorage)
+				node, found := e.FastStorageRing.GetNode(key)
+				if !found {
+					klog.Errorf("ListPredicate: node is not found in the ring for key %s", key)
+				}
 
-				finalStore = e.FastStorage[index]
+				finalStore = e.FastStorage[node]
 			}
 
 			storageOpts.Recursive = false
@@ -442,14 +448,14 @@ func (e *Store) ListPredicate(ctx context.Context, p storage.SelectionPredicate,
 
 	rootKey := e.KeyRootFunc(ctx)
 
-	finalStores := []DryRunnableStorage{e.Storage}
+	finalStores := map[string]DryRunnableStorage{"": e.Storage}
 
 	if storage.ShouldKeyMoveToTheFastStorage(rootKey) {
 		finalStores = e.FastStorage
 	}
 
 	for _, finalStore := range finalStores {
-		err := finalStore.GetList(ctx, rootKey, storageOpts, list)
+		err := finalStore.Storage.GetList(ctx, rootKey, storageOpts, list)
 		if err != nil {
 			return list, storeerr.InterpretListError(err, qualifiedResource)
 		}
@@ -573,10 +579,12 @@ func (e *Store) create(ctx context.Context, obj runtime.Object, createValidation
 	finalStore := e.Storage
 
 	if moveToFastStorage || storage.ShouldKeyMoveToTheFastStorage(key) {
-		// TODO: index based on consistent hashing
-		index := int(key[len(key)-1]) % len(e.FastStorage)
+		ringNode, found := e.FastStorageRing.GetNode(key)
+		if !found {
+			klog.Errorf("Create: node is not found in the ring for key %s", key)
+		}
 
-		finalStore = e.FastStorage[index]
+		finalStore = e.FastStorage[ringNode]
 	}
 
 	if err := finalStore.Create(ctx, key, obj, out, ttl, dryrun.IsDryRun(options.DryRun)); err != nil {
@@ -651,10 +659,12 @@ func (e *Store) deleteWithoutFinalizers(ctx context.Context, name, key string, o
 	finalStore := e.Storage
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
-		// TODO: find index based on consistent hashing
-		index := int(key[len(key)-1]) % len(e.FastStorage)
+		ringNode, found := e.FastStorageRing.GetNode(key)
+		if !found {
+			klog.Errorf("deleteWithoutFinalizers: node is not found in the ring for key %s", key)
+		}
 
-		finalStore = e.FastStorage[index]
+		finalStore = e.FastStorage[ringNode]
 	}
 
 	if err := finalStore.Delete(ctx, key, out, preconditions, rest.ValidateAllObjectFunc, dryrun.IsDryRun(options.DryRun), nil, storage.DeleteOptions{}); err != nil {
@@ -694,10 +704,12 @@ func (e *Store) Update(ctx context.Context, name string, objInfo rest.UpdatedObj
 	finalStore := e.Storage
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
-		// TODO: index based on consistent hashing
-		index := int(key[len(key)-1]) % len(e.FastStorage)
+		ringNode, found := e.FastStorageRing.GetNode(key)
+		if !found {
+			klog.Errorf("Update: node is not found in the ring for key %s", key)
+		}
 
-		finalStore = e.FastStorage[index]
+		finalStore = e.FastStorage[ringNode]
 	}
 
 	qualifiedResource := e.qualifiedResourceFromContext(ctx)
@@ -926,10 +938,12 @@ func (e *Store) Get(ctx context.Context, name string, options *metav1.GetOptions
 	finalStore := e.Storage
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
-		// TODO: index based on consistent hashing
-		index := int(key[len(key)-1]) % len(e.FastStorage)
+		ringNode, found := e.FastStorageRing.GetNode(key)
+		if !found {
+			klog.Errorf("Get: node is not found in the ring for key %s", key)
+		}
 
-		finalStore = e.FastStorage[index]
+		finalStore = e.FastStorage[ringNode]
 	}
 
 	if err := finalStore.Get(ctx, key, storage.GetOptions{ResourceVersion: options.ResourceVersion}, obj); err != nil {
@@ -1150,10 +1164,12 @@ func (e *Store) updateForGracefulDeletionAndFinalizers(ctx context.Context, name
 	finalStore := e.Storage
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
-		// TODO: consistent hashing
-		index := int(key[len(key)-1]) % len(e.FastStorage)
+		ringNode, found := e.FastStorageRing.GetNode(key)
+		if !found {
+			klog.Errorf("updateForGracefulDeletionAndFinalizers: node is not found in the ring for key %s", key)
+		}
 
-		finalStore = e.FastStorage[index]
+		finalStore = e.FastStorage[ringNode]
 	}
 
 	err = finalStore.GuaranteedUpdate(
@@ -1249,10 +1265,12 @@ func (e *Store) Delete(ctx context.Context, name string, deleteValidation rest.V
 	finalStore := e.Storage
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
-		// TODO: index based on consistent hashing
-		index := int(key[len(key)-1]) % len(e.FastStorage)
+		ringNode, found := e.FastStorageRing.GetNode(key)
+		if !found {
+			klog.Errorf("Delete: node is not found in the ring for key %s", key)
+		}
 
-		finalStore = e.FastStorage[index]
+		finalStore = e.FastStorage[ringNode]
 	}
 
 	if err = finalStore.Get(ctx, key, storage.GetOptions{}, obj); err != nil {
@@ -1578,7 +1596,7 @@ func (e *Store) WatchPredicate(ctx context.Context, p storage.SelectionPredicate
 		// optimization is skipped
 	}
 
-	finalStores := []DryRunnableStorage{e.Storage}
+	finalStores := map[string]DryRunnableStorage{"": e.Storage}
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
 		finalStores = e.FastStorage
@@ -1589,15 +1607,17 @@ func (e *Store) WatchPredicate(ctx context.Context, p storage.SelectionPredicate
 
 	w := make([]watch.Interface, len(finalStores))
 	var err error
+	i := 0
 
-	for i, finalStore := range finalStores {
-		w[i], err = finalStore.Watch(ctx, key, storageOpts)
+	for _, finalStore := range finalStores {
+		w[i], err = finalStore.Storage.Watch(ctx, key, storageOpts)
 		if err != nil {
 			return nil, err
 		}
 		if e.Decorator != nil {
 			w[i] = newDecoratedWatcher(ctx, w[i], e.Decorator)
 		}
+		i++
 	}
 
 	newInterfaceChan := chan watch.Interface(nil)
@@ -1801,13 +1821,13 @@ func (e *Store) CompleteWithOptions(options *generic.StoreOptions) error {
 			options.Indexers,
 		)
 
-		e.FastStorage = append(e.FastStorage, DryRunnableStorage{})
-
-		e.FastStorage[len(e.FastStorage)-1].Storage = interfaces[0]
-		e.FastStorage[len(e.FastStorage)-1].Codec = opts.StorageConfig.Codec
+		e.FastStorage[options.NewShardAddr] = DryRunnableStorage{
+			Storage: interfaces[0],
+			Codec:   opts.StorageConfig.Codec,
+		}
 	}
 
-	if e.Storage.Storage == nil || len(e.FastStorage) == 0 || e.FastStorage[0].Storage == nil {
+	if e.Storage.Storage == nil || len(e.FastStorage) == 0 {
 		e.Storage.Codec = opts.StorageConfig.Codec
 		var err error
 		e.Storage.Storage, e.DestroyFunc, err = opts.Decorator(
@@ -1835,11 +1855,13 @@ func (e *Store) CompleteWithOptions(options *generic.StoreOptions) error {
 			options.Indexers,
 		)
 
-		e.FastStorage = make([]DryRunnableStorage, len(interfaces))
+		e.FastStorage = make(map[string]DryRunnableStorage)
 
 		for i, inter := range interfaces {
-			e.FastStorage[i].Storage = inter
-			e.FastStorage[i].Codec = opts.StorageConfig.Codec
+			e.FastStorage[opts.StorageConfig.FastStorage[i].Transport.ShardList[0]] = DryRunnableStorage{
+				Storage: inter,
+				Codec:   opts.StorageConfig.Codec,
+			}
 		}
 
 		e.StorageVersioner = opts.StorageConfig.EncodeVersioner
@@ -1876,7 +1898,8 @@ func (e *Store) startObservingCount(period time.Duration, objectCountTracker flo
 	klog.V(2).InfoS("Monitoring resource count at path", "resource", resourceName, "path", "<storage-prefix>/"+prefix)
 	stopCh := make(chan struct{})
 	go wait.JitterUntil(func() {
-		finalStores := []DryRunnableStorage{e.Storage}
+
+		finalStores := map[string]DryRunnableStorage{"": e.Storage}
 
 		if storage.ShouldKeyMoveToTheFastStorage(prefix) {
 			finalStores = e.FastStorage
@@ -1885,7 +1908,7 @@ func (e *Store) startObservingCount(period time.Duration, objectCountTracker flo
 		finalCount := int64(0)
 
 		for _, finalStore := range finalStores {
-			count, err := finalStore.Count(prefix)
+			count, err := finalStore.Storage.Count(prefix)
 			if err != nil {
 				klog.V(5).InfoS("Failed to update storage count metric", "err", err)
 				count = -1
