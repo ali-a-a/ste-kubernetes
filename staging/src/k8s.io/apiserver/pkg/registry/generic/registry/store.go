@@ -1612,8 +1612,6 @@ func (e *Store) WatchPredicate(ctx context.Context, p storage.SelectionPredicate
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
 		finalStores = e.FastStorage
-		sendEvents := true
-		storageOpts.SendInitialEvents = &sendEvents
 		storageOpts.ResourceVersion = ""
 	}
 
