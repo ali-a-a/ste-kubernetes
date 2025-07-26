@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"k8s.io/klog/v2"
 
@@ -80,6 +81,12 @@ func (mw *MergedWatchChan) ResultChan() <-chan Event {
 			}
 			if atomic.AddInt32(&i, -1) == 0 {
 				mw.Stop()
+				// This sleep ensures that if there is a message left in the
+				// result channel above, the event gets processed before closing
+				// the merged channel. For now, this sleep does not occur any performance issue
+				// as it only happens in case of connection failures.
+				// TODO: Use sync methods instead of sleeping
+				time.Sleep(1 * time.Second)
 				close(mergedChan)
 			}
 		}(c)
@@ -100,6 +107,12 @@ func (mw *MergedWatchChan) ResultChan() <-chan Event {
 					}
 					if atomic.AddInt32(&i, -1) == 0 {
 						mw.Stop()
+						// This sleep ensures that if there is a message left in the
+						// result channel above, the event gets processed before closing
+						// the merged channel. For now, this sleep does not occur any performance issue
+						// as it only happens in case of connection failures.
+						// TODO: Use sync methods instead of sleeping
+						time.Sleep(1 * time.Second)
 						close(mergedChan)
 					}
 				}(newInterface)
