@@ -5410,6 +5410,10 @@ const (
 	// the characteristics of a NodeExternalIP. The IP it resolves to may or may not
 	// be a listed NodeExternalIP address.
 	NodeExternalDNS NodeAddressType = "ExternalDNS"
+
+	// DefaultNodeAddress identifies the default node address for its fast storage
+	// when the node specification does not include the ip address.
+	DefaultNodeAddress = "127.0.0.1"
 )
 
 // NodeAddress represents node's address

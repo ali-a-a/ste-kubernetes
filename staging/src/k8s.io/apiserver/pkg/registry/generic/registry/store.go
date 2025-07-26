@@ -246,7 +246,9 @@ type Store struct {
 	DestroyFunc func()
 
 	NodePodStorageChan chan string
+	NodePodDeleteChan  chan string
 	NewStorageChan     []chan DryRunnableStorage
+	DeleteStorageChan  []chan int
 
 	FastStorageRing *hashring.HashRing
 
@@ -1277,6 +1279,16 @@ func (e *Store) Delete(ctx context.Context, name string, deleteValidation rest.V
 		return nil, false, storeerr.InterpretDeleteError(err, qualifiedResource, name)
 	}
 
+	node, ok := obj.(*api.Node)
+	if ok {
+		// if the node address is not identified, go for the
+		if len(node.Status.Addresses) == 0 {
+			e.NodePodDeleteChan <- api.DefaultNodeAddress
+		} else {
+			e.NodePodDeleteChan <- node.Status.Addresses[0].Address
+		}
+	}
+
 	// support older consumers of delete by treating "nil" as delete immediately
 	if options == nil {
 		options = metav1.NewDeleteOptions(0)
@@ -1621,12 +1633,17 @@ func (e *Store) WatchPredicate(ctx context.Context, p storage.SelectionPredicate
 	}
 
 	newInterfaceChan := chan watch.Interface(nil)
+	newDeleteChan := chan int(nil)
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
 		newInterfaceChan = make(chan watch.Interface)
+		newDeleteChan = make(chan int)
 
 		newNewStorageChan := make(chan DryRunnableStorage)
+		newDeleteStorageChan := make(chan int)
+
 		e.NewStorageChan = append(e.NewStorageChan, newNewStorageChan)
+		e.DeleteStorageChan = append(e.DeleteStorageChan, newDeleteStorageChan)
 
 		// Watch on the new storage when it is added to the cluster.
 		go func() {
@@ -1644,9 +1661,16 @@ func (e *Store) WatchPredicate(ctx context.Context, p storage.SelectionPredicate
 				newInterfaceChan <- newW
 			}
 		}()
+
+		// Watch on the deleted storage when it is removed from the cluster.
+		go func() {
+			for index := range newDeleteStorageChan {
+				newDeleteChan <- index
+			}
+		}()
 	}
 
-	finalInterface := watch.NewMergedWatchChan(w, newInterfaceChan)
+	finalInterface := watch.NewMergedWatchChan(w, newInterfaceChan, newDeleteChan)
 
 	return finalInterface, nil
 }

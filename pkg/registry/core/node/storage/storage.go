@@ -93,7 +93,7 @@ func (r *StatusREST) ConvertToTable(ctx context.Context, object runtime.Object, 
 }
 
 // NewStorage returns a NodeStorage object that will work against nodes.
-func NewStorage(nodePodStorageChan chan string, optsGetter generic.RESTOptionsGetter, kubeletClientConfig client.KubeletClientConfig, proxyTransport http.RoundTripper) (*NodeStorage, error) {
+func NewStorage(nodePodDeleteChan chan string, nodePodStorageChan chan string, optsGetter generic.RESTOptionsGetter, kubeletClientConfig client.KubeletClientConfig, proxyTransport http.RoundTripper) (*NodeStorage, error) {
 	options := &generic.StoreOptions{
 		RESTOptions: optsGetter,
 		AttrFunc:    node.GetAttrs,
@@ -111,6 +111,7 @@ func NewStorage(nodePodStorageChan chan string, optsGetter generic.RESTOptionsGe
 		ResetFieldsStrategy: node.Strategy,
 
 		NodePodStorageChan: nodePodStorageChan,
+		NodePodDeleteChan:  nodePodDeleteChan,
 
 		TableConvertor: printerstorage.TableConvertor{TableGenerator: printers.NewTableGenerator().With(printersinternal.AddHandlers)},
 	}

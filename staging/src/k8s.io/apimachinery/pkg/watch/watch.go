@@ -54,11 +54,12 @@ type Interface interface {
 type MergedWatchChan struct {
 	interfaces       []Interface
 	newInterfaceChan chan Interface
+	newDeleteChan    chan int
 }
 
 // NewMergedWatchChan returns a new MergedWatchChan.
-func NewMergedWatchChan(interfaces []Interface, newInterfaceChan chan Interface) *MergedWatchChan {
-	return &MergedWatchChan{interfaces, newInterfaceChan}
+func NewMergedWatchChan(interfaces []Interface, newInterfaceChan chan Interface, newDeleteChan chan int) *MergedWatchChan {
+	return &MergedWatchChan{interfaces, newInterfaceChan, newDeleteChan}
 }
 
 // ResultChan returns the merged channel.
@@ -102,6 +103,16 @@ func (mw *MergedWatchChan) ResultChan() <-chan Event {
 						close(mergedChan)
 					}
 				}(newInterface)
+			}
+		}()
+	}
+
+	// When a node gets deleted, its interface should be stopped and deleted.
+	if mw.newDeleteChan != nil {
+		go func() {
+			for indexToRemove := range mw.newDeleteChan {
+				mw.interfaces[indexToRemove].Stop()
+				mw.interfaces = append(mw.interfaces[:indexToRemove], mw.interfaces[indexToRemove+1:]...)
 			}
 		}()
 	}

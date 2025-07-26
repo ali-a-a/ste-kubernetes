@@ -80,7 +80,7 @@ type REST struct {
 }
 
 // NewStorage returns a RESTStorage object that will work against pods.
-func NewStorage(nodePodStorageChan chan string, optsGetter generic.RESTOptionsGetter, k client.ConnectionInfoGetter, proxyTransport http.RoundTripper, podDisruptionBudgetClient policyclient.PodDisruptionBudgetsGetter) (PodStorage, error) {
+func NewStorage(nodePodDeleteChan chan string, nodePodStorageChan chan string, optsGetter generic.RESTOptionsGetter, k client.ConnectionInfoGetter, proxyTransport http.RoundTripper, podDisruptionBudgetClient policyclient.PodDisruptionBudgetsGetter) (PodStorage, error) {
 	store := &genericregistry.Store{
 		NewFunc:                   func() runtime.Object { return &api.Pod{} },
 		NewListFunc:               func() runtime.Object { return &api.PodList{} },
@@ -94,6 +94,7 @@ func NewStorage(nodePodStorageChan chan string, optsGetter generic.RESTOptionsGe
 		ResetFieldsStrategy: registrypod.Strategy,
 		ReturnDeletedObject: true,
 		NodePodStorageChan:  nodePodStorageChan,
+		NodePodDeleteChan:   nodePodDeleteChan,
 
 		TableConvertor: printerstorage.TableConvertor{TableGenerator: printers.NewTableGenerator().With(printersinternal.AddHandlers)},
 	}
@@ -116,6 +117,70 @@ func NewStorage(nodePodStorageChan chan string, optsGetter generic.RESTOptionsGe
 	resizeStore.UpdateStrategy = registrypod.ResizeStrategy
 
 	bindingREST := &BindingREST{store: store}
+
+	go func() {
+		for deletedShard := range nodePodDeleteChan {
+			deletedShardAddr := newShardProtocol + deletedShard + newShardPort
+
+			indexToRemove := -1
+
+			for i := range store.FastStorageRing.Nodes {
+				if deletedShardAddr == store.FastStorageRing.Nodes[i] {
+					indexToRemove = i
+					break
+				}
+			}
+
+			if indexToRemove == -1 {
+				continue
+			}
+
+			// Upon deleting a node, the shard should be deleted from the ring and all its objects
+			// should be also deleted from the cluster. These objects will be recreated by
+			// the upper-level controller in the new topology of the ring.
+			toRemoveStorage := store.FastStorage[store.FastStorageRing.Nodes[indexToRemove]]
+
+			store.FastStorageRing = store.FastStorageRing.RemoveNode(deletedShardAddr)
+			statusStore.FastStorageRing = statusStore.FastStorageRing.RemoveNode(deletedShardAddr)
+			ephemeralContainersStore.FastStorageRing = ephemeralContainersStore.FastStorageRing.RemoveNode(deletedShardAddr)
+			resizeStore.FastStorageRing = resizeStore.FastStorageRing.RemoveNode(deletedShardAddr)
+
+			podList := &corev1.PodList{}
+
+			storageOpts := storage.ListOptions{
+				ResourceVersion:      "0",
+				ResourceVersionMatch: metav1.ResourceVersionMatchNotOlderThan,
+				Predicate:            storage.Everything,
+				Recursive:            true,
+			}
+
+			if err := toRemoveStorage.GetList(context.Background(), "/pods", storageOpts, podList); err != nil {
+				klog.Errorf("error in getting toRemoveStorage pods: %s", err.Error())
+			}
+
+			for _, pod := range podList.Items {
+				contextWithNS := genericapirequest.WithNamespace(context.Background(), pod.Namespace)
+
+				key, err := store.KeyFunc(contextWithNS, pod.Name)
+				if err != nil {
+					klog.Errorf("cannot get key for pod: %s err: %s", pod.Name, err.Error())
+				}
+
+				out := store.NewFunc()
+
+				err = toRemoveStorage.Delete(context.Background(), key, out, &storage.Preconditions{}, rest.ValidateAllObjectFunc, false, nil, storage.DeleteOptions{})
+				if err != nil {
+					klog.Errorf("cannot delete pod: %s err: %s", pod.Name, err.Error())
+				}
+			}
+
+			delete(store.FastStorage, deletedShardAddr)
+
+			for _, channel := range store.DeleteStorageChan {
+				channel <- indexToRemove
+			}
+		}
+	}()
 
 	// This goroutine listens on the node storage channel
 	// and adds the new shard when a new node joins the cluster.
