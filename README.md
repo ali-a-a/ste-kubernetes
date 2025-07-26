@@ -39,3 +39,6 @@ The code can be downloaded by cloning the repository:
 git clone https://github.com/ali-a-a/ste-kubernetes.git
 ```
 
+## Installation
+
+To install and use STE, a document is provided in the `ste/docs` directory. You can follow the document to run the cluster in your environment.
