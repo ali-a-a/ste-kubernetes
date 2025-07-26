@@ -5,7 +5,7 @@
     <img src="https://github.com/user-attachments/assets/a48ed306-01e9-416d-9362-a08448896ae9" alt="Logo" width="189" height="160">
   </a>
 
-  <h1 align="center">Sharded Transient Etcd in Kubernetes</h1>
+  <h1 align="center">Sharded Transient Etcd: Accelerating Kubernetes for Serverless and Ephemeral Workloads</h1>
   <p align="center">
     STE: A new control plane architecture for Kubernetes
   </p>
