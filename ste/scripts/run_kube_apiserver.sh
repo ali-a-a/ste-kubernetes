@@ -9,10 +9,10 @@ else
 fi
 
 # Go should be installed
-go version || { echo "go is not installed" >&2; exit 1; }
+/usr/local/go/bin/go version || { echo "go is not installed" >&2; exit 1; }
 
 # Build the kube apiserver
-go build -o /etc/ste-kubernetes/bin \
+/usr/local/go/bin/go build -o /etc/ste-kubernetes/bin \
   -ldflags="-X k8s.io/component-base/version.gitVersion=v1.32.0" /etc/ste-kubernetes/source/ste-kubernetes/cmd/kube-apiserver
 
 # If the session exists, exit
