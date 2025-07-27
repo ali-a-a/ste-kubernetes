@@ -63,5 +63,5 @@ tmux send-keys -t persistent-etcd "/etc/ste-kubernetes/bin/kube-apiserver \
 --max-mutating-requests-inflight 1000000 \
 --max-requests-inflight 1000000 \
 --enable-priority-and-fairness=false \
---fast-storage-shards https://127.0.0.1:2179 \
+--fast-storage-shards https://$(hostname -i):2279 \
 --v=0" ENTER
