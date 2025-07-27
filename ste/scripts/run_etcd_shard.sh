@@ -35,11 +35,11 @@ tmux send-keys -t etcd-shard "etcd \
 --peer-trusted-ca-file=/etc/ste-kubernetes/pki/ca.crt \
 --peer-client-cert-auth \
 --client-cert-auth \
---advertise-client-urls=https://10.0.3.11:2279 \
---initial-advertise-peer-urls=https://10.0.3.11:2280 \
---initial-cluster=$(hostname -s)-ram-disk=https://10.0.3.11:2280 \
---listen-client-urls=https://127.0.0.1:2279,https://10.0.3.11:2279 \
---listen-peer-urls=https://10.0.3.11:2280 \
---initial-cluster-token etcd-cluster-0 \
+--advertise-client-urls=https://$(hostname -i):2279 \
+--initial-advertise-peer-urls=https://$(hostname -i):2280 \
+--initial-cluster=$(hostname -s)-ram-disk=https://$(hostname -i):2280 \
+--listen-client-urls=https://127.0.0.1:2279,https://$(hostname -i):2279 \
+--listen-peer-urls=https://$(hostname -i):2280 \
+--initial-cluster-token etcd-cluster-ram-disk \
 --initial-cluster-state new \
---data-dir=/var/lib/etcd-ram-disk" ENTER
+--data-dir=/var/lib/etcd-ste-ram-disk" ENTER
