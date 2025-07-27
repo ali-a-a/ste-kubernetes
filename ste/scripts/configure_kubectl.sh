@@ -73,9 +73,3 @@ kubectl config set-context default \
 --kubeconfig=/etc/ste-kubernetes/.kube/admin.kubeconfig
 
 kubectl config use-context default --kubeconfig=/etc/ste-kubernetes/.kube/admin.kubeconfig
-
-
-
-
-
-
