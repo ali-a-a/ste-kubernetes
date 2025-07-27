@@ -14,7 +14,7 @@ fi
 tmux new -s kube-apiserver
 
 # Run the kube apiserver
-tmux send-keys -t persistent-etcd "/etc/ste-kubernetes/bin/kube-apiserver \
+tmux send-keys -t kube-apiserver "/etc/ste-kubernetes/bin/kube-apiserver \
 --advertise-address=$(hostname -i) \
 --allow-privileged=true \
 --audit-log-maxage=30 \
