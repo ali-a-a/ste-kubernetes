@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Build the kube apiserver using this command inside the ali-a-a/ste-kubernetes.git repository.
-# go build -o /etc/ste-kubernetes/bin \
+# go build -o /etc/ste-kubernetes/bin/kube-apiserver \
 #  -ldflags="-X k8s.io/component-base/version.gitVersion=v1.32.0" ./cmd/kube-apiserver
 
 # If the session exists, exit
