@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Check whether the the data directory is clean
 if [ -d /etc/ste-kubernetes/source/ste-kubernetes ]; then
   echo "ali-a-a/ste-kubernetes.git is found"

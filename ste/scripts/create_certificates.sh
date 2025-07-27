@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Location of STE certificates
 mkdir -p /etc/ste-kubernetes/pki
 

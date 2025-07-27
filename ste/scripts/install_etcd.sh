@@ -1,3 +1,5 @@
+#!/bin/bash
+
 etcd --version && echo "etcd is already installed" && exit 0
 
 ARCH=$(uname -m)

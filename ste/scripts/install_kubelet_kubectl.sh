@@ -1,3 +1,5 @@
+#!/bin/bash
+
 which kubelet && which kubectl && echo "Kubelet and Kubectl are already installed" && exit 0
 
 ARCH=$(uname -m)

@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # If the session exists, exit
 if tmux has-session -t etcd-shard 2>/dev/null; then
   echo "Session etcd-shard exists. Exiting..."
@@ -27,8 +29,8 @@ tmux send-keys -t etcd-shard "etcd \
 --name $(hostname -s)-ram-disk \
 --cert-file=/etc/ste-kubernetes/pki/etcd-server.crt \
 --key-file=/etc/ste-kubernetes/pki/etcd-server.key \
---peer-cert-file=/etc/ste-kubernetes/pki/etcd-server2.crt \
---peer-key-file=/etc/ste-kubernetes/pki/etcd-server2.key \
+--peer-cert-file=/etc/ste-kubernetes/pki/etcd-server.crt \
+--peer-key-file=/etc/ste-kubernetes/pki/etcd-server.key \
 --trusted-ca-file=/etc/ste-kubernetes/pki/ca.crt \
 --peer-trusted-ca-file=/etc/ste-kubernetes/pki/ca.crt \
 --peer-client-cert-auth \

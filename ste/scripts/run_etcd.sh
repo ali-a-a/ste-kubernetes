@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # If the session exists, exit
 if tmux has-session -t persistent-etcd 2>/dev/null; then
   echo "Session persistent-etcd exists. Exiting..."
