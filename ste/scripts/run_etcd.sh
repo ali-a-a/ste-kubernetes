@@ -17,6 +17,8 @@ fi
 
 # Create the tmux session
 tmux new -s persistent-etcd
+
+# Run etcd
 tmux send-keys -t persistent-etcd "etcd \
 --name $(hostname -s) \
 --cert-file=/etc/ste-kubernetes/pki/etcd-server.crt \

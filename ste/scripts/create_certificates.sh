@@ -108,6 +108,7 @@ subjectAltName = @alt_names
 [alt_names]
 IP.1 = 127.0.0.1
 IP.2 = $(hostname -i)
+IP.3 = ${1:-127.0.0.1}
 EOF"
 
 # Create a private key for etcd
