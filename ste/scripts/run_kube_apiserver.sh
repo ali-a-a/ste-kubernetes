@@ -1,19 +1,8 @@
 #!/bin/bash
 
-# Check whether the the data directory is clean
-if [ -d /etc/ste-kubernetes/source/ste-kubernetes ]; then
-  echo "ali-a-a/ste-kubernetes.git is found"
-else
-  echo "You should clone the ali-a-a/ste-kubernetes.git repository in the /etc/ste-kubernetes/source/ directory"
-  exit 1
-fi
-
-# Go should be installed
-/usr/local/go/bin/go version || { echo "go is not installed" >&2; exit 1; }
-
-# Build the kube apiserver
-/usr/local/go/bin/go build -o /etc/ste-kubernetes/bin \
-  -ldflags="-X k8s.io/component-base/version.gitVersion=v1.32.0" /etc/ste-kubernetes/source/ste-kubernetes/cmd/kube-apiserver
+# Build the kube apiserver using this command inside the ali-a-a/ste-kubernetes.git repository.
+# go build -o /etc/ste-kubernetes/bin \
+#  -ldflags="-X k8s.io/component-base/version.gitVersion=v1.32.0" ./cmd/kube-apiserver
 
 # If the session exists, exit
 if tmux has-session -t kube-apiserver 2>/dev/null; then
