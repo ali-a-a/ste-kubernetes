@@ -19,7 +19,7 @@ IP.1 = $(hostname -i)
 EOF"
 
 openssl genrsa -out /etc/ste-kubernetes/node/pki/"$(hostname -s)".key 2048
-openssl req -new -key /etc/ste-kubernetes/node/pki/"$(hostname -s)".key -subj "/CN=system:node:'$(hostname -s)'/O=system:nodes" -out /etc/ste-kubernetes/node/pki/"$(hostname -s)".csr -config /etc/ste-kubernetes/node/pki/openssl-"$(hostname -s)".cnf
+openssl req -new -key /etc/ste-kubernetes/node/pki/"$(hostname -s)".key -subj "/CN=system:node:$(hostname -s)/O=system:nodes" -out /etc/ste-kubernetes/node/pki/"$(hostname -s)".csr -config /etc/ste-kubernetes/node/pki/openssl-"$(hostname -s)".cnf
 openssl x509 -req -in /etc/ste-kubernetes/node/pki/"$(hostname -s)".csr -CA /etc/ste-kubernetes/pki/ca.crt -CAkey /etc/ste-kubernetes/pki/ca.key -CAcreateserial  -out /etc/ste-kubernetes/node/pki/"$(hostname -s)".crt -extensions v3_req -extfile /etc/ste-kubernetes/node/pki/openssl-"$(hostname -s)".cnf -days 1000
 
 API_SERVER_IP_ADDRESS=$1
