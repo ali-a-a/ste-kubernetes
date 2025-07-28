@@ -65,6 +65,7 @@ IP.1 = 127.0.0.1
 IP.2 = $(hostname -i)
 IP.3 = ${1:-127.0.0.1}
 IP.4 = ${2:-127.0.0.1}
+IP.5 = 10.96.0.1
 EOF"
 
 # Create a private key for the kube api server
