@@ -14,7 +14,7 @@ fi
 tmux new -s kube-scheduler
 
 # Run the kube scheduler
-tmux send-keys -t kube-scheduler "/etc/ste-kubernetes/bin/kube-scheduler
+tmux send-keys -t kube-scheduler "/etc/ste-kubernetes/bin/kube-scheduler \
 --kubeconfig=/etc/ste-kubernetes/.kube/kube-scheduler.kubeconfig \
 --requestheader-client-ca-file=/etc/ste-kubernetes/pki/ca.crt \
 --leader-elect=false" ENTER
