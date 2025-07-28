@@ -22,7 +22,7 @@ kubectl config use-context default --kubeconfig=/etc/ste-kubernetes/.kube/kube-p
 
 # Create the controller manager configuration
 kubectl config set-cluster ste-kubernetes \
---certificate-authority=/etc/ste-kubernetes/pki/kubernetes/pki/ca.crt \
+--certificate-authority=/etc/ste-kubernetes/pki/ca.crt \
 --server=https://127.0.0.1:6443 \
 --kubeconfig=/etc/ste-kubernetes/.kube/kube-controller-manager.kubeconfig
 
