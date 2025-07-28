@@ -1,16 +1,16 @@
 #!/bin/bash
 
 # Check whether kubeste is configured or not
-kubeste version || { echo "kubeste is not configured" >&2; exit 1; }
+kubectl --kubeconfig=/etc/ste-kubernetes/.kube/admin.kubeconfig version || { echo "kubeste is not configured" >&2; exit 1; }
 
 # Create the tigera operator
-kubeste create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/tigera-operator.yaml
+kubectl --kubeconfig=/etc/ste-kubernetes/.kube/admin.kubeconfig create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/tigera-operator.yaml
 
 # Download custom resources for the calico project
 curl https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/custom-resources.yaml -O
 
 # Create calico CRs
-kubeste apply -f custom-resources.yaml
+kubectl --kubeconfig=/etc/ste-kubernetes/.kube/admin.kubeconfig apply -f custom-resources.yaml
 
 # Remove the custom-resources.yaml file
 rm -rf custom-resources.yaml
