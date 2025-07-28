@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if systemctl is-active --quiet containerd; then
+  echo "containerd is already running."
+  exit 0
+fi
+
 swapoff -a
 sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
 
@@ -29,7 +34,7 @@ lsmod | grep overlay
 sysctl net.bridge.bridge-nf-call-iptables net.bridge.bridge-nf-call-ip6tables net.ipv4.ip_forward
 
 curl -LO https://github.com/containerd/containerd/releases/download/v1.7.14/containerd-1.7.14-linux-amd64.tar.gz
-tar Cxzvf /usr/bin/ containerd-1.7.14-linux-amd64.tar.gz
+tar Cxzvf /usr/loca/bin/ containerd-1.7.14-linux-amd64.tar.gz
 curl -LO https://raw.githubusercontent.com/containerd/containerd/main/containerd.service
 mkdir -p /usr/local/lib/systemd/system/
 mv containerd.service /usr/local/lib/systemd/system/
