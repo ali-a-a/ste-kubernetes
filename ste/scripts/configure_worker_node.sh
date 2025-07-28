@@ -2,6 +2,8 @@
 
 kubectl version --client || { echo "kubeste is not configured" >&2; exit 1; }
 
+mkdir -p /etc/ste-kubernetes/node/pki/
+
 bash -c "cat > /etc/ste-kubernetes/node/pki/openssl-$(hostname -s).cnf <<EOF
 [req]
 req_extensions = v3_req
