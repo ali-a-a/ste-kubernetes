@@ -37,7 +37,8 @@ curl -LO https://github.com/containerd/containerd/releases/download/v1.7.14/cont
 tar Cxzvf /usr/loca/bin/ containerd-1.7.14-linux-amd64.tar.gz
 curl -LO https://raw.githubusercontent.com/containerd/containerd/main/containerd.service
 mkdir -p /usr/local/lib/systemd/system/
-mv containerd.service /usr/local/lib/systemd/system/
+cp containerd.service /usr/local/lib/systemd/system/
+rm -rf containerd.service
 mkdir -p /etc/containerd
 containerd config default | tee /etc/containerd/config.toml
 sed -i 's/SystemdCgroup \= false/SystemdCgroup \= true/g' /etc/containerd/config.toml
