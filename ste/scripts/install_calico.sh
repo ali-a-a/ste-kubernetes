@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Check whether kubeste is configured or not
+kubeste version || { echo "kubeste is not configured" >&2; exit 1; }
+
 # Create the tigera operator
 kubeste create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/tigera-operator.yaml
 
