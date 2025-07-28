@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if systemctl is-active --quiet containerd; then
-  echo "containerd is already running."
+  echo "containerd is already running"
   exit 0
 fi
 
@@ -34,7 +34,7 @@ lsmod | grep overlay
 sysctl net.bridge.bridge-nf-call-iptables net.bridge.bridge-nf-call-ip6tables net.ipv4.ip_forward
 
 curl -LO https://github.com/containerd/containerd/releases/download/v1.7.14/containerd-1.7.14-linux-amd64.tar.gz
-tar Cxzvf /usr/local/bin/ containerd-1.7.14-linux-amd64.tar.gz
+tar Cxzvf /usr/local/ containerd-1.7.14-linux-amd64.tar.gz
 curl -LO https://raw.githubusercontent.com/containerd/containerd/main/containerd.service
 mkdir -p /usr/local/lib/systemd/system/
 cp containerd.service /usr/local/lib/systemd/system/
@@ -49,7 +49,7 @@ curl -LO https://github.com/opencontainers/runc/releases/download/v1.1.12/runc.a
 install -m 755 runc.amd64 /usr/local/sbin/runc
 
 if ! systemctl is-active --quiet containerd; then
-  echo "containerd is not running."
+  echo "containerd is not running"
   exit 1
 fi
 
