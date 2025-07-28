@@ -1,6 +1,6 @@
 #!/bin/bash
 
-kubeste version || { echo "kubeste is not configured" >&2; exit 1; }
+kubectl version --client || { echo "kubeste is not configured" >&2; exit 1; }
 
 bash -c "cat > /etc/ste-kubernetes/node/pki/openssl-$(hostname -s).cnf <<EOF
 [req]
