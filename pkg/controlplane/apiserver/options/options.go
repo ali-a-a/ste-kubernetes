@@ -205,13 +205,9 @@ func (s *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 	fs.StringVar(&s.ServiceAccountSigningEndpoint, "service-account-signing-endpoint", s.ServiceAccountSigningEndpoint, ""+
 		"Path to socket where a external JWT signer is listening. This flag is mutually exclusive with --service-account-signing-key-file and --service-account-key-file. Requires enabling feature gate (ExternalServiceAccountTokenSigner)")
 
-	// Identify fast storage servers
-	fs.StringSliceVar(&s.FastStorage.StorageConfig.Transport.ServerList, "fast-storage-servers", s.FastStorage.StorageConfig.Transport.ServerList,
-		"List of fast storage servers to connect with (scheme://ip:port), comma separated.")
-
-	// Identify fast storage shards
-	fs.StringSliceVar(&s.FastStorage.StorageConfig.Transport.ShardList, "fast-storage-shards", s.FastStorage.StorageConfig.Transport.ShardList,
-		"List of fast storage shards to connect with (scheme://ip:port), comma separated.")
+	// Identify initial storage shards
+	fs.StringSliceVar(&s.FastStorage.StorageConfig.Transport.ShardList, "initial-storage-shards", s.FastStorage.StorageConfig.Transport.ShardList,
+		"List of initial storage shards to connect with (scheme://ip:port), comma separated.")
 }
 
 func (o *Options) Complete(ctx context.Context, fss cliflag.NamedFlagSets, alternateDNS []string, alternateIPs []net.IP) (CompletedOptions, error) {

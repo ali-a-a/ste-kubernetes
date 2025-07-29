@@ -52,5 +52,5 @@ tmux send-keys -t kube-apiserver "/etc/ste-kubernetes/bin/kube-apiserver \
 --max-mutating-requests-inflight 1000000 \
 --max-requests-inflight 1000000 \
 --enable-priority-and-fairness=false \
---fast-storage-shards https://$(hostname -i):2279 \
+--initial-storage-shards https://$(hostname -i):2279 \
 --v=0" ENTER
