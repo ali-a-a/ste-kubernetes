@@ -41,4 +41,11 @@ git clone https://github.com/ali-a-a/ste-kubernetes.git
 
 ## Installation
 
-To install and use STE, a document is provided in the `ste/docs` directory. You can follow the document to run the cluster in your environment.
+To install and use STE, scripts are provided in the `ste/scripts` directory. You can follow the instructions here to use
+these scripts.
+
+Create all the certificates used by STE:
+
+```bash
+./ste/scripts/create_certificates.sh
+```
