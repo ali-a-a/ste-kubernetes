@@ -46,8 +46,21 @@ git clone https://github.com/ali-a-a/ste-kubernetes.git
 To install and use STE, scripts are provided in the `ste/scripts` directory. You can follow the instructions here to use
 these scripts.
 
-Create all the certificates used by STE:
+Create all the certificates used by STE. These certificates will be stored in the `/etc/ste-kubernetes/pki/` directory.
 
 ```bash
 ./ste/scripts/create_certificates.sh
 ```
+
+Download and install kubelet and kubectl.
+
+```bash
+./ste/scripts/install_kubelet_kubectl.sh
+```
+
+Create kubeconfig for kubernetes components. These files will be stored in the `etc/ste-kubernetes/.kube/` directory.
+
+```bash
+./ste/scripts/configure_kubectl.sh
+```
+
