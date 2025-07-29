@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Apply the yaml file of the coredns
+# Check the config file and adjust it according to your environment, if needed
 kubectl --kubeconfig=/etc/ste-kubernetes/.kube/admin.kubeconfig apply -f - <<EOF
 apiVersion: v1
 kind: ServiceAccount

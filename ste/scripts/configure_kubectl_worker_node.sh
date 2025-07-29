@@ -1,9 +1,12 @@
 #!/bin/bash
 
+# Check if kubelet is installed
 kubectl version --client || { echo "kubeste is not configured" >&2; exit 1; }
 
+# Create the pki directory for the node certificate
 mkdir -p /etc/ste-kubernetes/node/pki/
 
+# Create the openssl cnf file for the current node
 bash -c "cat > /etc/ste-kubernetes/node/pki/openssl-$(hostname -s).cnf <<EOF
 [req]
 req_extensions = v3_req
@@ -18,10 +21,12 @@ DNS.1 = $(hostname -s)
 IP.1 = $(hostname -i)
 EOF"
 
+# Generate the certificate for the node
 openssl genrsa -out /etc/ste-kubernetes/node/pki/"$(hostname -s)".key 2048
 openssl req -new -key /etc/ste-kubernetes/node/pki/"$(hostname -s)".key -subj "/CN=system:node:$(hostname -s)/O=system:nodes" -out /etc/ste-kubernetes/node/pki/"$(hostname -s)".csr -config /etc/ste-kubernetes/node/pki/openssl-"$(hostname -s)".cnf
 openssl x509 -req -in /etc/ste-kubernetes/node/pki/"$(hostname -s)".csr -CA /etc/ste-kubernetes/pki/ca.crt -CAkey /etc/ste-kubernetes/pki/ca.key -CAcreateserial  -out /etc/ste-kubernetes/node/pki/"$(hostname -s)".crt -extensions v3_req -extfile /etc/ste-kubernetes/node/pki/openssl-"$(hostname -s)".cnf -days 1000
 
+# The address of the api server, provided using the command-line argument
 API_SERVER_IP_ADDRESS=$1
 
 if [ -z "$API_SERVER_IP_ADDRESS" ]; then
@@ -29,6 +34,7 @@ if [ -z "$API_SERVER_IP_ADDRESS" ]; then
   exit 1
 fi
 
+# Generate the kubeconfig file for the node
 kubectl config set-cluster ste-kubernetes \
     --certificate-authority=/etc/ste-kubernetes/pki/ca.crt \
     --server=https://"$API_SERVER_IP_ADDRESS":6443 \

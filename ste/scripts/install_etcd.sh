@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# Check if etcd is installed
 etcd --version && echo "etcd is already installed" && exit 0
 
 ARCH=$(uname -m)
@@ -11,6 +12,7 @@ else
     ARCH="arm64"
 fi
 
+# Download etcd binary
 wget -q --show-progress --https-only --timestamping \
 "https://github.com/coreos/etcd/releases/download/v3.5.21/etcd-v3.5.21-linux-${ARCH}.tar.gz"
 

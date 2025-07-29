@@ -1,13 +1,16 @@
 #!/bin/bash
 
+# If containerd is already running, exit
 if systemctl is-active --quiet containerd; then
   echo "containerd is already running"
   exit 0
 fi
 
+# Enable swapping for the kubelet
 swapoff -a
 sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
 
+# Add kubernetes modules
 cat <<EOF | tee /etc/modules-load.d/k8s.conf
 overlay
 br_netfilter
@@ -26,13 +29,14 @@ EOF
 # Apply sysctl params without reboot
 sysctl --system
 
-# Verify that the br_netfilter, overlay modules are loaded by running the following commands:
+# Verify that the br_netfilter, overlay modules are loaded
 lsmod | grep br_netfilter
 lsmod | grep overlay
 
-# Verify that the net.bridge.bridge-nf-call-iptables, net.bridge.bridge-nf-call-ip6tables, and net.ipv4.ip_forward system variables are set to 1 in your sysctl config by running the following command:
+# Verify that the net.bridge.bridge-nf-call-iptables, net.bridge.bridge-nf-call-ip6tables, and net.ipv4.ip_forward system variables are set to 1 in the sysctl config
 sysctl net.bridge.bridge-nf-call-iptables net.bridge.bridge-nf-call-ip6tables net.ipv4.ip_forward
 
+# Install and run containerd
 curl -LO https://github.com/containerd/containerd/releases/download/v1.7.14/containerd-1.7.14-linux-amd64.tar.gz
 tar Cxzvf /usr/local/ containerd-1.7.14-linux-amd64.tar.gz
 curl -LO https://raw.githubusercontent.com/containerd/containerd/main/containerd.service
@@ -45,14 +49,17 @@ sed -i 's/SystemdCgroup \= false/SystemdCgroup \= true/g' /etc/containerd/config
 systemctl daemon-reload
 systemctl enable --now containerd
 
+# Install runc
 curl -LO https://github.com/opencontainers/runc/releases/download/v1.1.12/runc.amd64
 install -m 755 runc.amd64 /usr/local/sbin/runc
 
+# if containerd is not working properly, exit with an error
 if ! systemctl is-active --quiet containerd; then
   echo "containerd is not running"
   exit 1
 fi
 
+# Install cni plugins
 curl -LO https://github.com/containernetworking/plugins/releases/download/v1.5.0/cni-plugins-linux-amd64-v1.5.0.tgz
 mkdir -p /opt/cni/bin
 tar Cxzvf /opt/cni/bin cni-plugins-linux-amd64-v1.5.0.tgz

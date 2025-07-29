@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# Check if kubelet and kubectl are installed
 which kubelet && which kubectl && echo "Kubelet and Kubectl are already installed" && exit 0
 
 ARCH=$(uname -m)
