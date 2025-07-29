@@ -18,7 +18,9 @@
 <div align="center">
 
   ### Built By Modifying
-  <a href="https://github.com/kubernetes/kubernetes">Kubernetes</a>
+  <a href="https://github.com/kubernetes/kubernetes">
+    <img src="https://github.com/kubernetes/kubernetes/blob/master/logo/name_blue.png" alt="Logo" width="100" height="100">
+  </a>
 </div>
 
 ## Software implementation
