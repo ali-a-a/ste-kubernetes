@@ -89,11 +89,80 @@ Run the etcd shard on the initial worker node. It will run the storage on the `e
 ./ste/scripts/run_etcd_shard.sh
 ```
 
-Compile the API Server and run it as a process. Ensure that your current directory is the root of `ali-a-a/ste-kubernetes`.
+Compile the API Server, Scheduler, and Controller Manager and run them as a process. Ensure that your current directory is the root of `ali-a-a/ste-kubernetes`.
 
 ```bash
 go build -o /etc/ste-kubernetes/bin/kube-apiserver \
   -ldflags="-X k8s.io/component-base/version.gitVersion=v1.32.0" ./cmd/kube-apiserver
+go build -o /etc/ste-kubernetes/bin/kube-scheduler \
+-ldflags="-X k8s.io/component-base/version.gitVersion=v1.32.0" ./cmd/kube-scheduler
+go build -o /etc/ste-kubernetes/bin/kube-controller-manager \
+-ldflags="-X k8s.io/component-base/version.gitVersion=v1.32.0" ./cmd/kube-controller-manager
 
 ./ste/scripts/run_kube_apiserver.sh
+./ste/scripts/run_kube_scheduler.sh
+./ste/scripts/run_kube_controller_manager.sh
+```
+
+Configure the worker node machine and run containerd. This script should be run on all the worker nodes.
+
+```bash
+./ste/scripts/configure_worker_node_machine.sh
+```
+
+Create kubeconfig files for the worker node. If the script is run on a worker node other than the control plane,
+ensure that ca certificates files are copied to the `/etc/ste-kubernetes/pki/` path. This script accepts the IP address
+of the control plane node as an argument.
+
+```bash
+./ste/scripts/configure_kubectl_worker_node.sh control_plane_ip_address
+```
+
+Compile and run kubelet.
+
+```bash
+go build -o /etc/ste-kubernetes/bin/kubelet \
+  -ldflags="-X k8s.io/component-base/version.gitVersion=v1.32.0" ./cmd/kubelet
+
+./ste/scripts/run_kubelet.sh
+```
+
+Compile and run kubelet.
+
+```bash
+go build -o /etc/ste-kubernetes/bin/kubelet \
+-ldflags="-X k8s.io/component-base/version.gitVersion=v1.32.0" ./cmd/kubelet
+
+./ste/scripts/run_kubelet.sh
+```
+
+Compile and run kube proxy.
+
+```bash
+go build -o /etc/ste-kubernetes/bin/kube-proxy \
+  -ldflags="-X k8s.io/component-base/version.gitVersion=v1.32.0" ./cmd/kube-proxy
+
+./ste/scripts/run_kube_proxy.sh
+```
+
+Set up a cluster role binding so that kube proxy can access endpoint slices.
+
+```bash
+./ste/scripts/patch_system_node_rbac.sh
+```
+
+Install and run coredns and calico in the cluster. Check the config file of coredns and adjust it according to your environment.
+
+```bash
+./ste/scripts/install_coredns.sh
+./ste/scripts/install_calico.sh
+```
+
+Configure kubeste so that you can access the cluster.
+
+```bash
+./ste/scripts/configure_kubeste.sh
+
+# Verify all the resources are created and pods are running.
+kubeste get all -A
 ```
