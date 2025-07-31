@@ -166,3 +166,7 @@ Configure kubeste so that you can access the cluster.
 # Verify all the resources are created and pods are running.
 kubeste get all -A
 ```
+
+## Contact
+
+Ali Abbasi Alaei - aabbasia@uwaterloo.ca
