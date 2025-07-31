@@ -47,12 +47,13 @@ To install and use STE, scripts are provided in the `ste/scripts` directory. You
 these scripts.
 
 Create all the certificates used by STE. These certificates will be stored in the `/etc/ste-kubernetes/pki/` directory.
+You need to pass the IP address of the worker nodes to this script.
 
 ```bash
-./ste/scripts/create_certificates.sh
+./ste/scripts/create_certificates.sh worker_node_1_ip_address worker_node_2_ip_address
 ```
 
-Download and install kubelet and kubectl.
+Download and install kubelet and kubectl v1.32.0.
 
 ```bash
 ./ste/scripts/install_kubelet_kubectl.sh
@@ -64,3 +65,35 @@ Create kubeconfig for kubernetes components. These files will be stored in the `
 ./ste/scripts/configure_kubectl.sh
 ```
 
+Download and install etcd v3.5.21.
+
+```bash
+./ste/scripts/install_etcd.sh
+```
+
+Run the persistent etcd instance. It will run the storage on the `/var/lib/etcd-ste` data directory.
+
+```bash
+./ste/scripts/run_etcd.sh
+```
+
+You can verify the process is running by checking its tmux session.
+
+```bash
+tmux attach -t etcd-shard
+```
+
+Run the etcd shard on the initial worker node. It will run the storage on the `etcd-ste-ram-disk` data directory (which is a RAM disk).
+
+```bash
+./ste/scripts/run_etcd_shard.sh
+```
+
+Compile the API Server and run it as a process. Ensure that your current directory is the root of `ali-a-a/ste-kubernetes`.
+
+```bash
+go build -o /etc/ste-kubernetes/bin/kube-apiserver \
+  -ldflags="-X k8s.io/component-base/version.gitVersion=v1.32.0" ./cmd/kube-apiserver
+
+./ste/scripts/run_kube_apiserver.sh
+```
