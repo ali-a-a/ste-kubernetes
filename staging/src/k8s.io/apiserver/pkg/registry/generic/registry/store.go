@@ -1890,6 +1890,7 @@ func (e *Store) CompleteWithOptions(options *generic.StoreOptions) error {
 		e.FastStorage = make(map[string]DryRunnableStorage)
 
 		for i, inter := range interfaces {
+			klog.V(0).Infof("interfaces: %v", opts.StorageConfig.FastStorage[i].Transport.ShardList[0])
 			e.FastStorage[opts.StorageConfig.FastStorage[i].Transport.ShardList[0]] = DryRunnableStorage{
 				Storage: inter,
 				Codec:   opts.StorageConfig.Codec,

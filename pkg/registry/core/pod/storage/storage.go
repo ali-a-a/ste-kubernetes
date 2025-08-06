@@ -288,6 +288,7 @@ func NewStorage(nodePodDeleteChan chan string, nodePodStorageChan chan string, o
 	fastStorageIDs := make([]string, 0)
 
 	for key, _ := range store.FastStorage {
+		klog.V(0).Infof("store.FastStorage keys: %v", key)
 		fastStorageIDs = append(fastStorageIDs, key)
 	}
 
