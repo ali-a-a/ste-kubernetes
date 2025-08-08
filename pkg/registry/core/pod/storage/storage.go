@@ -287,7 +287,7 @@ func NewStorage(nodePodDeleteChan chan string, nodePodStorageChan chan string, o
 
 	fastStorageIDs := make([]string, 0)
 
-	for key, _ := range store.FastStorage {
+	for key := range store.FastStorage {
 		fastStorageIDs = append(fastStorageIDs, key)
 	}
 
