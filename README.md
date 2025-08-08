@@ -158,6 +158,17 @@ Configure kubeste so that you can access the cluster.
 kubeste get all -A
 ```
 
+## Knative Evaluation
+To showcase the reduced cold start time in STE, Knative performance is measured when it is installed on STE and native
+Kubernetes. The figure below compares average end-to-end latencies of requests under varying numbers of
+cold starts, with minimum and maximum latencies indicated to highlight the tail latency.
+As the number of cold starts increases, the native Kubernetes setup incurs more persistent etcd updates and
+experiences greater disk contention along the critical path. Even the tail latency in this setup can
+approach one minute. In contrast, STE demonstrates significantly better performance and reduced latency variability,
+as Pod objects are stored in in-memory etcd shards rather than being written to persistent and replicated storage.
+
+<img src="https://github.com/user-attachments/assets/c0a67316-4f78-4c93-99e2-e31952625487" alt="knative" width="189" height="160">
+
 ## Contact
 
 Ali Abbasi Alaei - aabbasia@uwaterloo.ca
