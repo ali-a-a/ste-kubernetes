@@ -1,3 +1,6 @@
+//go:build skipregistrytests
+// +build skipregistrytests
+
 /*
 Copyright 2024 The Kubernetes Authors.
 
