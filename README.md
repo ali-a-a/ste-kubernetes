@@ -167,7 +167,7 @@ experiences greater disk contention along the critical path. Even the tail laten
 approach one minute. In contrast, STE demonstrates significantly better performance and reduced latency variability,
 as Pod objects are stored in in-memory etcd shards rather than being written to persistent and replicated storage.
 
-<img src="https://github.com/user-attachments/assets/c0a67316-4f78-4c93-99e2-e31952625487" alt="knative" width="400">
+<p align="center"><img src="https://github.com/user-attachments/assets/c0a67316-4f78-4c93-99e2-e31952625487" alt="knative" width="400"></p>
 
 ## Contact
 
