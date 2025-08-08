@@ -127,15 +127,6 @@ go build -o /etc/ste-kubernetes/bin/kubelet \
 ./ste/scripts/run_kubelet.sh
 ```
 
-Compile and run kubelet.
-
-```bash
-go build -o /etc/ste-kubernetes/bin/kubelet \
--ldflags="-X k8s.io/component-base/version.gitVersion=v1.32.0" ./cmd/kubelet
-
-./ste/scripts/run_kubelet.sh
-```
-
 Compile and run kube proxy.
 
 ```bash

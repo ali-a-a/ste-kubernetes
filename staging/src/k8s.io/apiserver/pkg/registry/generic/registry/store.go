@@ -589,8 +589,6 @@ func (e *Store) create(ctx context.Context, obj runtime.Object, createValidation
 	finalStore := e.Storage
 
 	if moveToFastStorage || storage.ShouldKeyMoveToTheFastStorage(key) {
-		klog.V(0).Infof("ring nodes: %v", e.FastStorageRing.Nodes)
-
 		ringNode, found := e.FastStorageRing.GetNode(key)
 		if !found {
 			klog.Errorf("Create: node is not found in the ring for key %s", key)
