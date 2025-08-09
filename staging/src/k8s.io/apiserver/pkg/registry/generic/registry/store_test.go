@@ -1167,9 +1167,7 @@ func TestStoreCreateOnUpdateHooks(t *testing.T) {
 	}
 }
 
-// TODO: add the test back to the package
 func TestStoreUpdateHooksInnerRetry(t *testing.T) {
-	t.Skip("TODO: add the test back to the package")
 	// To track which hooks were called in what order.  Not all hooks can
 	// mutate the object.
 	var milestones []string
@@ -1259,7 +1257,9 @@ func TestStoreUpdateHooksInnerRetry(t *testing.T) {
 			registry.TTLFunc = tc.ttl
 			// force storage to use a cached object with a non-matching resourceVersion to guarantee a live lookup + retry
 			created.(*example.Pod).ResourceVersion += "0"
-			registry.Storage.Storage = &staleGuaranteedUpdateStorage{Interface: registry.Storage.Storage, cachedObj: created}
+			fastStorage := registry.FastStorage["storage"]
+			fastStorage.Storage = &staleGuaranteedUpdateStorage{Interface: registry.FastStorage["storage"].Storage, cachedObj: created}
+			registry.FastStorage["storage"] = fastStorage
 			_, _, err = registry.Update(testContext, pod.Name, rest.DefaultUpdatedObjectInfo(pod), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
 			if err != nil && !tc.expectError {
 				t.Fatalf("Unexpected error: %v", err)
@@ -2130,17 +2130,17 @@ func (s *storageWithCounter) GetList(ctx context.Context, key string, opts stora
 	return s.Interface.GetList(ctx, key, opts, listObj)
 }
 
-// TODO: add the test back to the package
 func TestStoreDeleteCollection(t *testing.T) {
-	t.Skip("TODO: add the test back to the package")
 	testContext := genericapirequest.WithNamespace(genericapirequest.NewContext(), "test")
 	destroyFunc, registry := NewTestGenericStoreRegistry(t)
 	defer destroyFunc()
 
 	// Overwrite the underlying storage interface so that it counts GetList calls
 	// and reduce the default page size to 2.
-	storeWithCounter := &storageWithCounter{Interface: registry.Storage.Storage}
-	registry.Storage.Storage = storeWithCounter
+	storeWithCounter := &storageWithCounter{Interface: registry.FastStorage["storage"].Storage}
+	fastStorage := registry.FastStorage["storage"]
+	fastStorage.Storage = storeWithCounter
+	registry.FastStorage["storage"] = fastStorage
 	originalDeleteCollectionPageSize := deleteCollectionPageSize
 	deleteCollectionPageSize = 2
 	defer func() {
@@ -2326,8 +2326,6 @@ func TestStoreDeleteCollectionWithContextCancellation(t *testing.T) {
 // Test whether objects deleted with DeleteCollection are correctly delivered
 // to watchers.
 func TestStoreDeleteCollectionWithWatch(t *testing.T) {
-	t.Skip("TODO: add the test back to the package")
-
 	podA := &example.Pod{ObjectMeta: metav1.ObjectMeta{Name: "foo"}}
 
 	testContext := genericapirequest.WithNamespace(genericapirequest.NewContext(), "test")
@@ -2346,11 +2344,23 @@ func TestStoreDeleteCollectionWithWatch(t *testing.T) {
 	}
 	defer watcher.Stop()
 
+	ch := watcher.ResultChan()
+
+	// Check the ADDED event as the watched ResourceVersion for pods is 0.
+	got, open := <-ch
+	if !open {
+		t.Errorf("Unexpected channel close")
+	} else {
+		if got.Type != "ADDED" {
+			t.Errorf("Unexpected event type: %s", got.Type)
+		}
+	}
+
 	if _, err := registry.DeleteCollection(testContext, rest.ValidateAllObjectFunc, nil, &metainternalversion.ListOptions{}); err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	got, open := <-watcher.ResultChan()
+	got, open = <-ch
 	if !open {
 		t.Errorf("Unexpected channel close")
 	} else {

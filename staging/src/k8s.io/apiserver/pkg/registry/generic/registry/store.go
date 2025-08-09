@@ -1620,6 +1620,8 @@ func (e *Store) WatchPredicate(ctx context.Context, p storage.SelectionPredicate
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
 		finalStores = e.FastStorage
+		// Set resource version to "0", so that shard interfaces will get current object at given key
+		// and send it in an "ADDED" event, before watch starts.
 		storageOpts.ResourceVersion = "0"
 	}
 
