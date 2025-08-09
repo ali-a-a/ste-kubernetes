@@ -1289,7 +1289,7 @@ func (e *Store) Delete(ctx context.Context, name string, deleteValidation rest.V
 
 	node, ok := obj.(*api.Node)
 	if ok {
-		// if the node address is not identified, go for the
+		// if the node address is not identified, go for the default node address
 		if len(node.Status.Addresses) == 0 {
 			e.NodePodDeleteChan <- api.DefaultNodeAddress
 		} else {
