@@ -2325,10 +2325,7 @@ func TestStoreDeleteCollectionWithContextCancellation(t *testing.T) {
 
 // Test whether objects deleted with DeleteCollection are correctly delivered
 // to watchers.
-// TODO: add the test back to the package
 func TestStoreDeleteCollectionWithWatch(t *testing.T) {
-	t.Skip("TODO: add the test back to the package")
-
 	podA := &example.Pod{ObjectMeta: metav1.ObjectMeta{Name: "foo"}}
 
 	testContext := genericapirequest.WithNamespace(genericapirequest.NewContext(), "test")

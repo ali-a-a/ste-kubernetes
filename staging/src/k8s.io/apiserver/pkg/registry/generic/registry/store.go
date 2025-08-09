@@ -1620,7 +1620,7 @@ func (e *Store) WatchPredicate(ctx context.Context, p storage.SelectionPredicate
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
 		finalStores = e.FastStorage
-		storageOpts.ResourceVersion = ""
+		//storageOpts.ResourceVersion = ""
 	}
 
 	w := make([]watch.Interface, len(finalStores))
