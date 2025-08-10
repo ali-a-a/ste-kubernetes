@@ -1,0 +1,118 @@
+---
+- hosts: control_plane_public
+  become: yes
+  become_user: root
+  vars:
+    worker_ips: "{{ groups['workers_private'] | join(' ') }}"
+  tasks:
+    - name: Create certificates
+      shell: ./ste/scripts/create_certificates.sh {{ worker_ips }}
+      args:
+        chdir: "{{ ste_dir }}"
+        creates: /etc/ste-kubernetes/pki
+    - name: Install kubelet and kubectl
+      shell: ./ste/scripts/install_kubelet_kubectl.sh
+      args:
+        chdir: "{{ ste_dir }}"
+    - name: Configure kubectl for control plane
+      shell: ./ste/scripts/configure_kubectl.sh
+      args:
+        chdir: "{{ ste_dir }}"
+        creates: /etc/ste-kubernetes/.kube
+    - name: Install etcd
+      shell: ./ste/scripts/install_etcd.sh
+      args:
+        chdir: "{{ ste_dir }}"
+    - name: Run persistent etcd
+      shell: ./ste/scripts/run_etcd.sh
+      args:
+        chdir: "{{ ste_dir }}"
+    - name: Run persistent etcd
+      shell: ./ste/scripts/run_etcd.sh
+      args:
+        chdir: "{{ ste_dir }}"
+    - name: Run etcd shard
+      shell: ./ste/scripts/run_etcd_shard.sh
+      args:
+        chdir: "{{ ste_dir }}"
+    - name: Check if Golang is already installed
+      stat:
+        path: /usr/local/go/bin/go
+      register: go_binary
+    - name: Install Golang
+      when: not go_binary.stat.exists
+      shell: |
+        curl -LO https://go.dev/dl/go{{ go_version }}.linux-amd64.tar.gz
+        rm -rf /usr/local/go
+        tar -C /usr/local -xzf go{{ go_version }}.linux-amd64.tar.gz
+      args:
+        chdir: /tmp
+    - name: Set Golang environment variables
+      when: not go_binary.stat.exists
+      copy:
+        dest: /etc/profile.d/go.sh
+        content: |
+          export PATH=$PATH:/usr/local/go/bin
+          export GOPATH=$HOME/go
+          export PATH=$PATH:$GOPATH/bin
+        mode: '0644'
+    - name: Create /usr/local/bin/go symlink for root usage
+      file:
+        src: "/usr/local/go/bin/go"
+        dest: /usr/local/bin/go
+        state: link
+    - name: Build kube-apiserver
+      shell: go build -o /etc/ste-kubernetes/bin/kube-apiserver -ldflags="-X k8s.io/component-base/version.gitVersion={{ k8s_version }}" ./cmd/kube-apiserver
+      args:
+        chdir: "{{ ste_dir }}"
+        creates: /etc/ste-kubernetes/bin/kube-apiserver
+    - name: Build kube-scheduler
+      shell: go build -o /etc/ste-kubernetes/bin/kube-scheduler -ldflags="-X k8s.io/component-base/version.gitVersion={{ k8s_version }}" ./cmd/kube-scheduler
+      args:
+        chdir: "{{ ste_dir }}"
+        creates: /etc/ste-kubernetes/bin/kube-scheduler
+    - name: Build kube-controller-manager
+      shell: go build -o /etc/ste-kubernetes/bin/kube-controller-manager -ldflags="-X k8s.io/component-base/version.gitVersion={{ k8s_version }}" ./cmd/kube-controller-manager
+      args:
+        chdir: "{{ ste_dir }}"
+        creates: /etc/ste-kubernetes/bin/kube-controller-manager
+
+- hosts: workers_public
+  become: yes
+  become_user: root
+  vars:
+    control_plane_ip: "{{ groups['control_plane_private'][0] }}"
+  tasks:
+    - name: Install kubelet and kubectl
+      shell: ./ste/scripts/install_kubelet_kubectl.sh
+      args:
+        chdir: "{{ ste_dir }}"
+    - name: Configure worker node machine
+      shell: ./ste/scripts/configure_worker_node_machine.sh
+      args:
+        chdir: "{{ ste_dir }}"
+    - name: Prompt user to copy CA files manually
+      pause:
+        prompt: |
+          Please copy the following files to this worker node:
+          /etc/ste-kubernetes/pki/ca.crt
+          /etc/ste-kubernetes/pki/ca.key
+
+          Once done, press Enter to continue.
+    - name: Verify ca.crt exists
+      stat:
+        path: /etc/ste-kubernetes/pki/ca.crt
+      register: crt_stat
+    - name: Verify ca.key exists
+      stat:
+        path: /etc/ste-kubernetes/pki/ca.key
+      register: key_stat
+    - name: Fail if files are missing
+      fail:
+        msg: "CA files are missing. Please copy them and re-run."
+      when: not crt_stat.stat.exists or not key_stat.stat.exists
+    - name: Configure kubectl on worker node
+      shell: ./ste/scripts/configure_kubectl_worker_node.sh {{ control_plane_ip }}
+      args:
+        chdir: "{{ ste_dir }}"
+        creates: /etc/ste-kubernetes/node/

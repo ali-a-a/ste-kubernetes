@@ -8,17 +8,14 @@ fi
 
 # Check whether the the data directory is clean
 if [ -d /var/lib/etcd-ste ]; then
-  read -p "This will remove /var/lib/etcd-ste. Do you want to continue? [y/N] " confirm
-  if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
-    exit 1
-  fi
+  echo "Removing existing /var/lib/etcd-ste..."
   rm -rf /var/lib/etcd-ste
 else
   mkdir -p /var/lib/etcd-ste
 fi
 
 # Create the tmux session
-tmux new -s persistent-etcd
+tmux new -d -s persistent-etcd
 
 # Run etcd
 tmux send-keys -t persistent-etcd "etcd \

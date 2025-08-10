@@ -8,10 +8,8 @@ fi
 
 # Check whether the the data directory is clean
 if [ -d /var/lib/etcd-ste-ram-disk ]; then
-  read -p "This will remove /var/lib/etcd-ste-ram-disk. Do you want to continue? [y/N] " confirm
-  if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
-    exit 1
-  fi
+  echo "Removing /var/lib/etcd-ste-ram-disk"
+
   umount -l /var/lib/etcd-ste-ram-disk
   rm -rf /var/lib/etcd-ste-ram-disk
   mkdir /var/lib/etcd-ste-ram-disk
@@ -22,7 +20,7 @@ else
 fi
 
 # Create the tmux session
-tmux new -s etcd-shard
+tmux new -d -s etcd-shard
 
 # Run etcd shard
 tmux send-keys -t etcd-shard "etcd \

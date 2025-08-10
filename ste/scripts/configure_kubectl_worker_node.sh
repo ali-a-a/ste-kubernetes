@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Check if kubelet is installed
-kubectl version --client || { echo "kubeste is not configured" >&2; exit 1; }
+kubectl version --client || { echo "kubectl is not installed" >&2; exit 1; }
 
 # Create the pki directory for the node certificate
 mkdir -p /etc/ste-kubernetes/node/pki/
