@@ -160,7 +160,7 @@ Configure kubeste so that you can access the cluster.
 kubeste get all -A
 ```
 
-## Ansible Playbook
+## Ansible playbook
 Instead of running the above scripts, you can use the ansible playbook provided in the `ste/ansible` directory.
 For running the playbook, first adjust the values in the `inventory.ini` file. Public addresses are for ansible to
 be able to ssh into servers, and private addresses are for STE components to communicate with each other. Moreover,
@@ -171,7 +171,7 @@ file. Use this command to start the installation using ansible:
 ansible-playbook -i ste/ansible/inventory.ini ste/ansible/setup.yaml
 ```
 
-## Knative Evaluation
+## Knative evaluation
 To showcase the reduced cold start time in STE, Knative performance is measured when it is installed on STE and native
 Kubernetes. The figure below compares average end-to-end latencies of requests under varying numbers of
 cold starts, with minimum and maximum latencies indicated to highlight the tail latency.
