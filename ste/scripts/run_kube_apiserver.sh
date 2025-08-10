@@ -11,7 +11,7 @@ if tmux has-session -t kube-apiserver 2>/dev/null; then
 fi
 
 # Create the tmux session
-tmux new -s kube-apiserver
+tmux new -d -s kube-apiserver
 
 # Run the kube apiserver
 tmux send-keys -t kube-apiserver "/etc/ste-kubernetes/bin/kube-apiserver \

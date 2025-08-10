@@ -76,6 +76,18 @@
       args:
         chdir: "{{ ste_dir }}"
         creates: /etc/ste-kubernetes/bin/kube-controller-manager
+    - name: Run kube-apiserver
+      shell: ./ste/scripts/run_kube_apiserver.sh
+      args:
+        chdir: "{{ ste_dir }}"
+    - name: Run kube-scheduler
+      shell: ./ste/scripts/run_kube_scheduler.sh
+      args:
+        chdir: "{{ ste_dir }}"
+    - name: Run kube-controller-manager
+      shell: ./ste/scripts/run_kube_controller_manager.sh
+      args:
+        chdir: "{{ ste_dir }}"
 
 - hosts: workers_public
   become: yes
@@ -83,6 +95,32 @@
   vars:
     control_plane_ip: "{{ groups['control_plane_private'][0] }}"
   tasks:
+    - name: Check if Golang is already installed
+      stat:
+        path: /usr/local/go/bin/go
+      register: go_binary
+    - name: Install Golang
+      when: not go_binary.stat.exists
+      shell: |
+        curl -LO https://go.dev/dl/go{{ go_version }}.linux-amd64.tar.gz
+        rm -rf /usr/local/go
+        tar -C /usr/local -xzf go{{ go_version }}.linux-amd64.tar.gz
+      args:
+        chdir: /tmp
+    - name: Set Golang environment variables
+      when: not go_binary.stat.exists
+      copy:
+        dest: /etc/profile.d/go.sh
+        content: |
+          export PATH=$PATH:/usr/local/go/bin
+          export GOPATH=$HOME/go
+          export PATH=$PATH:$GOPATH/bin
+        mode: '0644'
+    - name: Create /usr/local/bin/go symlink for root usage
+      file:
+        src: "/usr/local/go/bin/go"
+        dest: /usr/local/bin/go
+        state: link
     - name: Install kubelet and kubectl
       shell: ./ste/scripts/install_kubelet_kubectl.sh
       args:
@@ -94,7 +132,7 @@
     - name: Prompt user to copy CA files manually
       pause:
         prompt: |
-          Please copy the following files to this worker node:
+          Please copy the following files to the worker nodes:
           /etc/ste-kubernetes/pki/ca.crt
           /etc/ste-kubernetes/pki/ca.key
 
@@ -116,3 +154,67 @@
       args:
         chdir: "{{ ste_dir }}"
         creates: /etc/ste-kubernetes/node/
+    - name: Prompt user to copy etcd pki files manually
+      pause:
+        prompt: |
+          Please copy the following files to the worker nodes:
+          /etc/ste-kubernetes/pki/etcd-server.crt
+          /etc/ste-kubernetes/pki/etcd-server.key
+
+          Once done, press Enter to continue.
+    - name: Verify etcd-server.crt exists
+      stat:
+        path: /etc/ste-kubernetes/pki/etcd-server.crt
+      register: etcd_crt_stat
+    - name: Verify etcd-server.key exists
+      stat:
+        path: /etc/ste-kubernetes/pki/etcd-server.key
+      register: etcd_key_stat
+    - name: Fail if etcd pki files are missing
+      fail:
+        msg: "etcd pki files are missing. Please copy them and re-run."
+      when: not etcd_crt_stat.stat.exists or not etcd_key_stat.stat.exists
+    - name: Install etcd
+      shell: ./ste/scripts/install_etcd.sh
+      args:
+        chdir: "{{ ste_dir }}"
+    - name: Run etcd shard
+      shell: ./ste/scripts/run_etcd_shard.sh
+      args:
+        chdir: "{{ ste_dir }}"
+    - name: Build kubelet
+      shell: go build -o /etc/ste-kubernetes/bin/kubelet \
+        -ldflags="-X k8s.io/component-base/version.gitVersion={{ k8s_version }}" ./cmd/kubelet
+      args:
+        chdir: "{{ ste_dir }}"
+        creates: /etc/ste-kubernetes/bin/kubelet
+    - name: Run kubelet
+      shell: ./ste/scripts/run_kubelet.sh
+      args:
+        chdir: "{{ ste_dir }}"
+    - name: Build kube-proxy
+      shell: go build -o /etc/ste-kubernetes/bin/kube-proxy \
+        -ldflags="-X k8s.io/component-base/version.gitVersion={{ k8s_version }}" ./cmd/kube-proxy
+      args:
+        chdir: "{{ ste_dir }}"
+        creates: /etc/ste-kubernetes/bin/kube-proxy
+    - name: Run kube-proxy
+      shell: ./ste/scripts/run_kube_proxy.sh
+      args:
+        chdir: "{{ ste_dir }}"
+- hosts: control_plane_public
+  become: yes
+  become_user: root
+  tasks:
+    - name: Patch RBAC for kube-proxy
+      shell: ./ste/scripts/patch_system_node_rbac.sh
+      args:
+        chdir: "{{ ste_dir }}"
+    - name: Install CoreDNS
+      shell: ./ste/scripts/install_coredns.sh
+      args:
+        chdir: "{{ ste_dir }}"
+    - name: Install Calico
+      shell: ./ste/scripts/install_calico.sh
+      args:
+        chdir: "{{ ste_dir }}"

@@ -11,7 +11,7 @@ if tmux has-session -t kubelet 2>/dev/null; then
 fi
 
 # Create the tmux session
-tmux new -s kubelet
+tmux new -d -s kubelet
 
 # Create the kubelet config
 bash -c "cat > /etc/ste-kubernetes/pki/kubelet-config.yaml <<EOF

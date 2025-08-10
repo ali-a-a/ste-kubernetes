@@ -11,7 +11,7 @@ if tmux has-session -t kube-proxy 2>/dev/null; then
 fi
 
 # Create the tmux session
-tmux new -s kube-proxy
+tmux new -d -s kube-proxy
 
 # Run the kube proxy
 tmux send-keys -t kube-proxy "/etc/ste-kubernetes/bin/kube-proxy \

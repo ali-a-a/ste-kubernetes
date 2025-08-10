@@ -4,7 +4,7 @@
 kubectl --kubeconfig=/etc/ste-kubernetes/.kube/admin.kubeconfig version || { echo "kubeste is not configured" >&2; exit 1; }
 
 # Create the tigera operator
-kubectl --kubeconfig=/etc/ste-kubernetes/.kube/admin.kubeconfig create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/tigera-operator.yaml
+kubectl --kubeconfig=/etc/ste-kubernetes/.kube/admin.kubeconfig apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/tigera-operator.yaml
 
 # Download custom resources for the calico project
 curl https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/custom-resources.yaml -O

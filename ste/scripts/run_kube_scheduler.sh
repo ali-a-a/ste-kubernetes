@@ -11,7 +11,7 @@ if tmux has-session -t kube-scheduler 2>/dev/null; then
 fi
 
 # Create the tmux session
-tmux new -s kube-scheduler
+tmux new -d -s kube-scheduler
 
 # Run the kube scheduler
 tmux send-keys -t kube-scheduler "/etc/ste-kubernetes/bin/kube-scheduler \

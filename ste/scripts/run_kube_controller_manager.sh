@@ -11,7 +11,7 @@ if tmux has-session -t kube-controller-manager 2>/dev/null; then
 fi
 
 # Create the tmux session
-tmux new -s kube-controller-manager
+tmux new -d -s kube-controller-manager
 
 # Run the kube controller manager
 tmux send-keys -t kube-controller-manager "/etc/ste-kubernetes/bin/kube-controller-manager \
