@@ -209,68 +209,6 @@ func NewStorage(nodePodDeleteChan chan string, nodePodStorageChan chan string, o
 			ephemeralContainersStore.FastStorageRing = ephemeralContainersStore.FastStorageRing.AddNode(options.NewShardAddr)
 			resizeStore.FastStorageRing = resizeStore.FastStorageRing.AddNode(options.NewShardAddr)
 
-			// When there is a new node in the ring, keys inside the next node, which
-			// are now in the zone of the new node, should be migrated to the new node's storage.
-			// For doing that, instead of explicitly migrating the keys, we use the built-in mechanism of
-			// the design. By simply deleting these keys, they will be essentially recreated in the new topology
-			// of the ring. This section does this action.
-			ringNodes := store.FastStorageRing.Nodes
-			nodeIndex := 0
-
-			for i, ringNode := range ringNodes {
-				if options.NewShardAddr == ringNode {
-					nodeIndex = i
-					break
-				}
-			}
-
-			nextNodeIndex := (nodeIndex + 1) % len(ringNodes)
-			nextNodeStorage := store.FastStorage[ringNodes[nextNodeIndex]]
-
-			podList := &corev1.PodList{}
-
-			storageOpts := storage.ListOptions{
-				ResourceVersion:      "0",
-				ResourceVersionMatch: metav1.ResourceVersionMatchNotOlderThan,
-				Predicate:            storage.Everything,
-				Recursive:            true,
-			}
-
-			if err = nextNodeStorage.GetList(context.Background(), "/pods", storageOpts, podList); err != nil {
-				klog.Errorf("error in getting nextNodeStorage pods: %s", err.Error())
-			}
-
-			for _, pod := range podList.Items {
-				ownerReferences := pod.GetOwnerReferences()
-
-				shouldBeDeleted := false
-
-				for _, or := range ownerReferences {
-					if or.Kind == "ReplicaSet" {
-						shouldBeDeleted = true
-						break
-					}
-				}
-
-				if !shouldBeDeleted {
-					continue
-				}
-
-				contextWithNS := genericapirequest.WithNamespace(context.Background(), pod.Namespace)
-
-				key, err := store.KeyFunc(contextWithNS, pod.Name)
-				if err != nil {
-					klog.Errorf("cannot get key for pod: %s err: %s", pod.Name, err.Error())
-				}
-
-				out := store.NewFunc()
-
-				err = nextNodeStorage.Delete(context.Background(), key, out, &storage.Preconditions{}, rest.ValidateAllObjectFunc, false, nil, storage.DeleteOptions{})
-				if err != nil {
-					klog.Errorf("cannot delete pod: %s err: %s", pod.Name, err.Error())
-				}
-			}
-
 			// Notify all the watchers about the new shard
 			for _, channel := range store.NewStorageChan {
 				channel <- store.FastStorage[options.NewShardAddr]
