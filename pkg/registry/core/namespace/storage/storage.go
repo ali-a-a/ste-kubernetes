@@ -37,7 +37,6 @@ import (
 	printerstorage "k8s.io/kubernetes/pkg/printers/storage"
 	"k8s.io/kubernetes/pkg/registry/core/namespace"
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
-	"strings"
 )
 
 // rest implements a RESTStorage for namespaces
@@ -182,10 +181,14 @@ func (r *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 		finalStore := r.store.Storage
 
 		if storage.ShouldKeyMoveToTheFastStorage(key) {
-			parts := strings.Split(key, "-")
-			port := parts[len(parts)-1]
-			host := strings.Join(parts[len(parts)-5:len(parts)-1], ".")
-			finalStore = r.store.FastStorage[storage.ShardProtocol+host+":"+port]
+			nodeKey, valid := storage.GetNodeKeyByPodKey(key)
+			if valid {
+				var ok bool
+				finalStore, ok = r.store.FastStorage[nodeKey]
+				if !ok {
+					finalStore = r.store.Storage
+				}
+			}
 		}
 
 		out := r.store.NewFunc()

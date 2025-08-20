@@ -167,3 +167,16 @@ func ShouldKeyMoveToTheFastStorage(key string) bool {
 
 	return false
 }
+
+// GetNodeKeyByPodKey extracts the node key based on the pod key.
+func GetNodeKeyByPodKey(key string) (string, bool) {
+	parts := strings.Split(key, "-")
+
+	if len(parts) >= 5 {
+		port := parts[len(parts)-1]
+		host := strings.Join(parts[len(parts)-5:len(parts)-1], ".")
+		return ShardProtocol + host + ":" + port, true
+	}
+
+	return "", false
+}

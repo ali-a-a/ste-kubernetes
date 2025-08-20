@@ -434,10 +434,14 @@ func (e *Store) ListPredicate(ctx context.Context, p storage.SelectionPredicate,
 			finalStore := e.Storage
 
 			if storage.ShouldKeyMoveToTheFastStorage(key) {
-				parts := strings.Split(key, "-")
-				port := parts[len(parts)-1]
-				host := strings.Join(parts[len(parts)-5:len(parts)-1], ".")
-				finalStore = e.FastStorage[storage.ShardProtocol+host+":"+port]
+				nodeKey, valid := storage.GetNodeKeyByPodKey(key)
+				if valid {
+					var ok bool
+					finalStore, ok = e.FastStorage[nodeKey]
+					if !ok {
+						finalStore = e.Storage
+					}
+				}
 			}
 
 			storageOpts.Recursive = false
@@ -525,17 +529,20 @@ func (e *Store) create(ctx context.Context, obj runtime.Object, createValidation
 		rest.FillObjectMetaSystemFields(objectMeta)
 		if len(objectMeta.GetGenerateName()) > 0 && len(objectMeta.GetName()) == 0 {
 			objectMeta.SetName(e.CreateStrategy.GenerateName(objectMeta.GetGenerateName()))
-		}
 
-		if _, ok := obj.(*api.Pod); ok {
-			nodes := e.FastStorageRing.Nodes
-			node := nodes[rand.Intn(len(nodes))]
-			if strings.Contains(node, storage.ShardProtocol) {
-				node = node[len(storage.ShardProtocol):]
+			// if the object is a pod, add the node identifier to its name.
+			if _, ok := obj.(*api.Pod); ok {
+				nodes := e.FastStorageRing.Nodes
+				node := nodes[rand.Intn(len(nodes))]
+
+				if strings.Contains(node, storage.ShardProtocol) {
+					node = node[len(storage.ShardProtocol):]
+				}
+
+				replacer := strings.NewReplacer(".", "-", ":", "-")
+				id := replacer.Replace(node)
+				objectMeta.SetName(objectMeta.GetName() + "-" + id)
 			}
-			replacer := strings.NewReplacer(".", "-", ":", "-")
-			token := replacer.Replace(node)
-			objectMeta.SetName(objectMeta.GetName() + "-" + token)
 		}
 	}
 
@@ -599,10 +606,14 @@ func (e *Store) create(ctx context.Context, obj runtime.Object, createValidation
 	finalStore := e.Storage
 
 	if moveToFastStorage || storage.ShouldKeyMoveToTheFastStorage(key) {
-		parts := strings.Split(key, "-")
-		port := parts[len(parts)-1]
-		host := strings.Join(parts[len(parts)-5:len(parts)-1], ".")
-		finalStore = e.FastStorage[storage.ShardProtocol+host+":"+port]
+		nodeKey, valid := storage.GetNodeKeyByPodKey(key)
+		if valid {
+			var ok bool
+			finalStore, ok = e.FastStorage[nodeKey]
+			if !ok {
+				finalStore = e.Storage
+			}
+		}
 	}
 
 	if err := finalStore.Create(ctx, key, obj, out, ttl, dryrun.IsDryRun(options.DryRun)); err != nil {
@@ -677,10 +688,14 @@ func (e *Store) deleteWithoutFinalizers(ctx context.Context, name, key string, o
 	finalStore := e.Storage
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
-		parts := strings.Split(key, "-")
-		port := parts[len(parts)-1]
-		host := strings.Join(parts[len(parts)-5:len(parts)-1], ".")
-		finalStore = e.FastStorage[storage.ShardProtocol+host+":"+port]
+		nodeKey, valid := storage.GetNodeKeyByPodKey(key)
+		if valid {
+			var ok bool
+			finalStore, ok = e.FastStorage[nodeKey]
+			if !ok {
+				finalStore = e.Storage
+			}
+		}
 	}
 
 	if err := finalStore.Delete(ctx, key, out, preconditions, rest.ValidateAllObjectFunc, dryrun.IsDryRun(options.DryRun), nil, storage.DeleteOptions{}); err != nil {
@@ -720,10 +735,14 @@ func (e *Store) Update(ctx context.Context, name string, objInfo rest.UpdatedObj
 	finalStore := e.Storage
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
-		parts := strings.Split(key, "-")
-		port := parts[len(parts)-1]
-		host := strings.Join(parts[len(parts)-5:len(parts)-1], ".")
-		finalStore = e.FastStorage[storage.ShardProtocol+host+":"+port]
+		nodeKey, valid := storage.GetNodeKeyByPodKey(key)
+		if valid {
+			var ok bool
+			finalStore, ok = e.FastStorage[nodeKey]
+			if !ok {
+				finalStore = e.Storage
+			}
+		}
 	}
 
 	qualifiedResource := e.qualifiedResourceFromContext(ctx)
@@ -952,11 +971,14 @@ func (e *Store) Get(ctx context.Context, name string, options *metav1.GetOptions
 	finalStore := e.Storage
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
-		fmt.Println(key)
-		parts := strings.Split(key, "-")
-		port := parts[len(parts)-1]
-		host := strings.Join(parts[len(parts)-5:len(parts)-1], ".")
-		finalStore = e.FastStorage[storage.ShardProtocol+host+":"+port]
+		nodeKey, valid := storage.GetNodeKeyByPodKey(key)
+		if valid {
+			var ok bool
+			finalStore, ok = e.FastStorage[nodeKey]
+			if !ok {
+				finalStore = e.Storage
+			}
+		}
 	}
 
 	if err := finalStore.Get(ctx, key, storage.GetOptions{ResourceVersion: options.ResourceVersion}, obj); err != nil {
@@ -1177,10 +1199,14 @@ func (e *Store) updateForGracefulDeletionAndFinalizers(ctx context.Context, name
 	finalStore := e.Storage
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
-		parts := strings.Split(key, "-")
-		port := parts[len(parts)-1]
-		host := strings.Join(parts[len(parts)-5:len(parts)-1], ".")
-		finalStore = e.FastStorage[storage.ShardProtocol+host+":"+port]
+		nodeKey, valid := storage.GetNodeKeyByPodKey(key)
+		if valid {
+			var ok bool
+			finalStore, ok = e.FastStorage[nodeKey]
+			if !ok {
+				finalStore = e.Storage
+			}
+		}
 	}
 
 	err = finalStore.GuaranteedUpdate(
@@ -1276,10 +1302,14 @@ func (e *Store) Delete(ctx context.Context, name string, deleteValidation rest.V
 	finalStore := e.Storage
 
 	if storage.ShouldKeyMoveToTheFastStorage(key) {
-		parts := strings.Split(key, "-")
-		port := parts[len(parts)-1]
-		host := strings.Join(parts[len(parts)-5:len(parts)-1], ".")
-		finalStore = e.FastStorage[storage.ShardProtocol+host+":"+port]
+		nodeKey, valid := storage.GetNodeKeyByPodKey(key)
+		if valid {
+			var ok bool
+			finalStore, ok = e.FastStorage[nodeKey]
+			if !ok {
+				finalStore = e.Storage
+			}
+		}
 	}
 
 	if err = finalStore.Get(ctx, key, storage.GetOptions{}, obj); err != nil {

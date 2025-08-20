@@ -47,7 +47,6 @@ import (
 	"net/http"
 	"net/url"
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
-	"strings"
 )
 
 // PodStorage includes storage for pods and all sub resources
@@ -345,10 +344,16 @@ func (r *BindingREST) setPodHostAndAnnotations(ctx context.Context, podUID types
 		}
 	}
 
-	parts := strings.Split(podKey, "-")
-	port := parts[len(parts)-1]
-	host := strings.Join(parts[len(parts)-5:len(parts)-1], ".")
-	finalStore := r.store.FastStorage[storage.ShardProtocol+host+":"+port]
+	finalStore := r.store.Storage
+
+	nodeKey, valid := storage.GetNodeKeyByPodKey(podKey)
+	if valid {
+		var ok bool
+		finalStore, ok = r.store.FastStorage[nodeKey]
+		if !ok {
+			finalStore = r.store.Storage
+		}
+	}
 
 	err = finalStore.GuaranteedUpdate(ctx, podKey, &api.Pod{}, false, preconditions, storage.SimpleUpdate(func(obj runtime.Object) (runtime.Object, error) {
 		pod, ok := obj.(*api.Pod)

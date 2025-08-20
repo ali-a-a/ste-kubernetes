@@ -30,7 +30,6 @@ import (
 	storageerr "k8s.io/apiserver/pkg/storage/errors"
 	"k8s.io/apiserver/pkg/util/dryrun"
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
-	"strings"
 )
 
 // rest implements a RESTStorage for API services against etcd
@@ -131,10 +130,14 @@ func (r *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 		finalStore := r.Store.Storage
 
 		if storage.ShouldKeyMoveToTheFastStorage(key) {
-			parts := strings.Split(key, "-")
-			port := parts[len(parts)-1]
-			host := strings.Join(parts[len(parts)-5:len(parts)-1], ".")
-			finalStore = r.FastStorage[storage.ShardProtocol+host+":"+port]
+			nodeKey, valid := storage.GetNodeKeyByPodKey(key)
+			if valid {
+				var ok bool
+				finalStore, ok = r.Store.FastStorage[nodeKey]
+				if !ok {
+					finalStore = r.Store.Storage
+				}
+			}
 		}
 
 		err = finalStore.GuaranteedUpdate(
