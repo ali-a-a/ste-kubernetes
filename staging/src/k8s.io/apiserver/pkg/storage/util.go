@@ -31,6 +31,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+// TODO: Make the port configurable
+const (
+	// ShardProtocol is a protocol to connect to the dynamically added shard.
+	ShardProtocol = "https://"
+	// ShardPort is a port to connect to the dynamically added shard.
+	ShardPort = ":2279"
+)
+
 type SimpleUpdateFunc func(runtime.Object) (runtime.Object, error)
 
 // SimpleUpdateFunc converts SimpleUpdateFunc into UpdateFunc

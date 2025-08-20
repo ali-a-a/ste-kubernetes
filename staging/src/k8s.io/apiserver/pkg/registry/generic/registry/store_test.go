@@ -1257,9 +1257,9 @@ func TestStoreUpdateHooksInnerRetry(t *testing.T) {
 			registry.TTLFunc = tc.ttl
 			// force storage to use a cached object with a non-matching resourceVersion to guarantee a live lookup + retry
 			created.(*example.Pod).ResourceVersion += "0"
-			fastStorage := registry.FastStorage["storage"]
-			fastStorage.Storage = &staleGuaranteedUpdateStorage{Interface: registry.FastStorage["storage"].Storage, cachedObj: created}
-			registry.FastStorage["storage"] = fastStorage
+			fastStorage := registry.FastStorage["https://127.0.0.1:2279"]
+			fastStorage.Storage = &staleGuaranteedUpdateStorage{Interface: registry.FastStorage["https://127.0.0.1:2279"].Storage, cachedObj: created}
+			registry.FastStorage["https://127.0.0.1:2279"] = fastStorage
 			_, _, err = registry.Update(testContext, pod.Name, rest.DefaultUpdatedObjectInfo(pod), rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
 			if err != nil && !tc.expectError {
 				t.Fatalf("Unexpected error: %v", err)
@@ -2137,10 +2137,10 @@ func TestStoreDeleteCollection(t *testing.T) {
 
 	// Overwrite the underlying storage interface so that it counts GetList calls
 	// and reduce the default page size to 2.
-	storeWithCounter := &storageWithCounter{Interface: registry.FastStorage["storage"].Storage}
-	fastStorage := registry.FastStorage["storage"]
+	storeWithCounter := &storageWithCounter{Interface: registry.FastStorage["https://127.0.0.1:2279"].Storage}
+	fastStorage := registry.FastStorage["https://127.0.0.1:2279"]
 	fastStorage.Storage = storeWithCounter
-	registry.FastStorage["storage"] = fastStorage
+	registry.FastStorage["https://127.0.0.1:2279"] = fastStorage
 	originalDeleteCollectionPageSize := deleteCollectionPageSize
 	deleteCollectionPageSize = 2
 	defer func() {
@@ -2513,8 +2513,8 @@ func newTestGenericStoreRegistry(t *testing.T, scheme *runtime.Scheme, hasCacheE
 			}
 		},
 		Storage:         DryRunnableStorage{Storage: s[0]},
-		FastStorage:     map[string]DryRunnableStorage{"storage": {Storage: s[0]}},
-		FastStorageRing: hashring.New([]string{"storage"}),
+		FastStorage:     map[string]DryRunnableStorage{"https://127.0.0.1:2279": {Storage: s[0]}},
+		FastStorageRing: hashring.New([]string{"https://127.0.0.1:2279"}),
 	}
 }
 

@@ -50,14 +50,6 @@ import (
 	"strings"
 )
 
-const (
-	// TODO: Make the port configurable
-	// The protocol to connect to the dynamically added shard.
-	newShardProtocol = "https://"
-	// The port to connect to the dynamically added shard.
-	newShardPort = ":2279"
-)
-
 // PodStorage includes storage for pods and all sub resources
 type PodStorage struct {
 	Pod                 *REST
@@ -121,7 +113,7 @@ func NewStorage(nodePodDeleteChan chan string, nodePodStorageChan chan string, o
 
 	go func() {
 		for deletedShard := range nodePodDeleteChan {
-			deletedShardAddr := newShardProtocol + deletedShard + newShardPort
+			deletedShardAddr := storage.ShardProtocol + deletedShard + storage.ShardPort
 
 			indexToRemove := -1
 
@@ -187,7 +179,7 @@ func NewStorage(nodePodDeleteChan chan string, nodePodStorageChan chan string, o
 	// and adds the new shard when a new node joins the cluster.
 	go func() {
 		for newShard := range nodePodStorageChan {
-			options.NewShardAddr = newShardProtocol + newShard + newShardPort
+			options.NewShardAddr = storage.ShardProtocol + newShard + storage.ShardPort
 
 			// Add the new shard to the list of fast storage.
 			// This call won't affect current connections to other storage instances.
@@ -415,8 +407,10 @@ func (r *BindingREST) setPodHostAndAnnotations(ctx context.Context, podUID types
 		}
 	}
 
-	tokens := strings.Split(podKey, "-")
-	finalStore := r.store.FastStorage[tokens[len(tokens)-1]]
+	parts := strings.Split(podKey, "-")
+	port := parts[len(parts)-1]
+	host := strings.Join(parts[len(parts)-5:len(parts)-1], ".")
+	finalStore := r.store.FastStorage[storage.ShardProtocol+host+":"+port]
 
 	err = finalStore.GuaranteedUpdate(ctx, podKey, &api.Pod{}, false, preconditions, storage.SimpleUpdate(func(obj runtime.Object) (runtime.Object, error) {
 		pod, ok := obj.(*api.Pod)

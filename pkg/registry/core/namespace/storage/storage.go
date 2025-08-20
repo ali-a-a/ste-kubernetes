@@ -182,8 +182,10 @@ func (r *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 		finalStore := r.store.Storage
 
 		if storage.ShouldKeyMoveToTheFastStorage(key) {
-			tokens := strings.Split(key, "-")
-			finalStore = r.store.FastStorage[tokens[len(tokens)-1]]
+			parts := strings.Split(key, "-")
+			port := parts[len(parts)-1]
+			host := strings.Join(parts[len(parts)-5:len(parts)-1], ".")
+			finalStore = r.store.FastStorage[storage.ShardProtocol+host+":"+port]
 		}
 
 		out := r.store.NewFunc()
