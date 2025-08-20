@@ -31,13 +31,13 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 	storageerr "k8s.io/apiserver/pkg/storage/errors"
 	"k8s.io/apiserver/pkg/util/dryrun"
-	"k8s.io/klog/v2"
 	api "k8s.io/kubernetes/pkg/apis/core"
 	"k8s.io/kubernetes/pkg/printers"
 	printersinternal "k8s.io/kubernetes/pkg/printers/internalversion"
 	printerstorage "k8s.io/kubernetes/pkg/printers/storage"
 	"k8s.io/kubernetes/pkg/registry/core/namespace"
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
+	"strings"
 )
 
 // rest implements a RESTStorage for namespaces
@@ -182,12 +182,8 @@ func (r *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 		finalStore := r.store.Storage
 
 		if storage.ShouldKeyMoveToTheFastStorage(key) {
-			node, found := r.store.FastStorageRing.GetNode(key)
-			if !found {
-				klog.Errorf("Delete: node is not found in the ring for key %s", key)
-			}
-
-			finalStore = r.store.FastStorage[node]
+			tokens := strings.Split(key, "-")
+			finalStore = r.store.FastStorage[tokens[len(tokens)-1]]
 		}
 
 		out := r.store.NewFunc()

@@ -47,6 +47,7 @@ import (
 	"net/http"
 	"net/url"
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
+	"strings"
 )
 
 const (
@@ -414,12 +415,8 @@ func (r *BindingREST) setPodHostAndAnnotations(ctx context.Context, podUID types
 		}
 	}
 
-	ringNode, found := r.store.FastStorageRing.GetNode(podKey)
-	if !found {
-		klog.Errorf("setPodHostAndAnnotations: node is not found in the ring for key %s", podKey)
-	}
-
-	finalStore := r.store.FastStorage[ringNode]
+	tokens := strings.Split(podKey, "-")
+	finalStore := r.store.FastStorage[tokens[len(tokens)-1]]
 
 	err = finalStore.GuaranteedUpdate(ctx, podKey, &api.Pod{}, false, preconditions, storage.SimpleUpdate(func(obj runtime.Object) (runtime.Object, error) {
 		pod, ok := obj.(*api.Pod)
