@@ -19,6 +19,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"hash/fnv"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -37,6 +38,11 @@ const (
 	ShardProtocol = "https://"
 	// ShardPort is a port to connect to the dynamically added shard.
 	ShardPort = ":2279"
+
+	alphabet = "0123456789abcdefghijklmnopqrstuvwxyz"
+	base     = uint64(len(alphabet))
+	length   = 7
+	space    = 78364164096 // 36^7
 )
 
 type SimpleUpdateFunc func(runtime.Object) (runtime.Object, error)
@@ -172,11 +178,26 @@ func ShouldKeyMoveToTheFastStorage(key string) bool {
 func GetNodeKeyByPodKey(key string) (string, bool) {
 	parts := strings.Split(key, "-")
 
-	if len(parts) >= 5 {
-		port := parts[len(parts)-1]
-		host := strings.Join(parts[len(parts)-5:len(parts)-1], ".")
-		return ShardProtocol + host + ":" + port, true
+	if len(parts) >= 2 {
+		return parts[len(parts)-1], true
 	}
 
 	return "", false
+}
+
+// HashIPPort returns a 7-char code for an "ip:port" string.
+func HashIPPort(s string) string {
+	// FNV-1a 64-bit hash
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(s))
+	n := h.Sum64() % space
+
+	// Convert to fixed-length (left-pad with '0' if needed)
+	var buf [length]byte
+	for i := length - 1; i >= 0; i-- {
+		buf[i] = alphabet[n%base]
+		n /= base
+	}
+
+	return string(buf[:])
 }

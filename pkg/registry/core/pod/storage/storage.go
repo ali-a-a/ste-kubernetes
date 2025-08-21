@@ -19,7 +19,6 @@ package storage
 import (
 	"context"
 	"fmt"
-	"github.com/serialx/hashring"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -113,11 +112,12 @@ func NewStorage(nodePodDeleteChan chan string, nodePodStorageChan chan string, o
 	go func() {
 		for deletedShard := range nodePodDeleteChan {
 			deletedShardAddr := storage.ShardProtocol + deletedShard + storage.ShardPort
+			deletedShardAddrHash := storage.HashIPPort(deletedShardAddr)
 
 			indexToRemove := -1
 
-			for i := range store.FastStorageRing.Nodes {
-				if deletedShardAddr == store.FastStorageRing.Nodes[i] {
+			for i := range store.FastStorageNodes {
+				if deletedShardAddrHash == store.FastStorageNodes[i] {
 					indexToRemove = i
 					break
 				}
@@ -130,12 +130,12 @@ func NewStorage(nodePodDeleteChan chan string, nodePodStorageChan chan string, o
 			// Upon deleting a node, the shard should be deleted from the ring and all its objects
 			// should be also deleted from the cluster. These objects will be recreated by
 			// the upper-level controller in the new topology of the ring.
-			toRemoveStorage := store.FastStorage[store.FastStorageRing.Nodes[indexToRemove]]
+			toRemoveStorage := store.FastStorage[deletedShardAddrHash]
 
-			store.FastStorageRing = store.FastStorageRing.RemoveNode(deletedShardAddr)
-			statusStore.FastStorageRing = statusStore.FastStorageRing.RemoveNode(deletedShardAddr)
-			ephemeralContainersStore.FastStorageRing = ephemeralContainersStore.FastStorageRing.RemoveNode(deletedShardAddr)
-			resizeStore.FastStorageRing = resizeStore.FastStorageRing.RemoveNode(deletedShardAddr)
+			store.FastStorageNodes = append(store.FastStorageNodes[:indexToRemove], store.FastStorageNodes[indexToRemove+1:]...)
+			statusStore.FastStorageNodes = append(statusStore.FastStorageNodes[:indexToRemove], statusStore.FastStorageNodes[indexToRemove+1:]...)
+			ephemeralContainersStore.FastStorageNodes = append(ephemeralContainersStore.FastStorageNodes[:indexToRemove], ephemeralContainersStore.FastStorageNodes[indexToRemove+1:]...)
+			resizeStore.FastStorageNodes = append(resizeStore.FastStorageNodes[:indexToRemove], resizeStore.FastStorageNodes[indexToRemove+1:]...)
 
 			podList := &corev1.PodList{}
 
@@ -166,7 +166,7 @@ func NewStorage(nodePodDeleteChan chan string, nodePodStorageChan chan string, o
 				}
 			}
 
-			delete(store.FastStorage, deletedShardAddr)
+			delete(store.FastStorage, deletedShardAddrHash)
 
 			for _, channel := range store.DeleteStorageChan {
 				channel <- indexToRemove
@@ -179,6 +179,7 @@ func NewStorage(nodePodDeleteChan chan string, nodePodStorageChan chan string, o
 	go func() {
 		for newShard := range nodePodStorageChan {
 			options.NewShardAddr = storage.ShardProtocol + newShard + storage.ShardPort
+			newShardAddrHash := storage.HashIPPort(options.NewShardAddr)
 
 			// Add the new shard to the list of fast storage.
 			// This call won't affect current connections to other storage instances.
@@ -203,14 +204,14 @@ func NewStorage(nodePodDeleteChan chan string, nodePodStorageChan chan string, o
 			}
 
 			// Add the new node to all the storage rings.
-			store.FastStorageRing = store.FastStorageRing.AddNode(options.NewShardAddr)
-			statusStore.FastStorageRing = statusStore.FastStorageRing.AddNode(options.NewShardAddr)
-			ephemeralContainersStore.FastStorageRing = ephemeralContainersStore.FastStorageRing.AddNode(options.NewShardAddr)
-			resizeStore.FastStorageRing = resizeStore.FastStorageRing.AddNode(options.NewShardAddr)
+			store.FastStorageNodes = append(store.FastStorageNodes, newShardAddrHash)
+			statusStore.FastStorageNodes = append(statusStore.FastStorageNodes, newShardAddrHash)
+			ephemeralContainersStore.FastStorageNodes = append(ephemeralContainersStore.FastStorageNodes, newShardAddrHash)
+			resizeStore.FastStorageNodes = append(resizeStore.FastStorageNodes, newShardAddrHash)
 
 			// Notify all the watchers about the new shard
 			for _, channel := range store.NewStorageChan {
-				channel <- store.FastStorage[options.NewShardAddr]
+				channel <- store.FastStorage[newShardAddrHash]
 			}
 		}
 	}()
@@ -221,10 +222,10 @@ func NewStorage(nodePodDeleteChan chan string, nodePodStorageChan chan string, o
 		fastStorageIDs = append(fastStorageIDs, key)
 	}
 
-	store.FastStorageRing = hashring.New(fastStorageIDs)
-	statusStore.FastStorageRing = hashring.New(fastStorageIDs)
-	ephemeralContainersStore.FastStorageRing = hashring.New(fastStorageIDs)
-	resizeStore.FastStorageRing = hashring.New(fastStorageIDs)
+	store.FastStorageNodes = fastStorageIDs
+	statusStore.FastStorageNodes = fastStorageIDs
+	ephemeralContainersStore.FastStorageNodes = fastStorageIDs
+	resizeStore.FastStorageNodes = fastStorageIDs
 
 	return PodStorage{
 		Pod:                 &REST{store, proxyTransport},

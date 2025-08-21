@@ -19,7 +19,6 @@ package registry
 import (
 	"context"
 	"fmt"
-	"github.com/serialx/hashring"
 	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"math/rand"
 	"strings"
@@ -251,7 +250,7 @@ type Store struct {
 	NewStorageChan     []chan DryRunnableStorage
 	DeleteStorageChan  []chan int
 
-	FastStorageRing *hashring.HashRing
+	FastStorageNodes []string
 
 	// corruptObjDeleter implements unsafe deletion flow to enable deletion
 	// of corrupt object(s), it makes an attempt to perform a normal
@@ -532,16 +531,9 @@ func (e *Store) create(ctx context.Context, obj runtime.Object, createValidation
 
 			// if the object is a pod, add the node identifier to its name.
 			if _, ok := obj.(*api.Pod); ok {
-				nodes := e.FastStorageRing.Nodes
+				nodes := e.FastStorageNodes
 				node := nodes[rand.Intn(len(nodes))]
-
-				if strings.Contains(node, storage.ShardProtocol) {
-					node = node[len(storage.ShardProtocol):]
-				}
-
-				replacer := strings.NewReplacer(".", "-", ":", "-")
-				id := replacer.Replace(node)
-				objectMeta.SetName(objectMeta.GetName() + "-" + id)
+				objectMeta.SetName(objectMeta.GetName() + "-" + node)
 			}
 		}
 	}
@@ -1882,7 +1874,7 @@ func (e *Store) CompleteWithOptions(options *generic.StoreOptions) error {
 			options.Indexers,
 		)
 
-		e.FastStorage[options.NewShardAddr] = DryRunnableStorage{
+		e.FastStorage[storage.HashIPPort(options.NewShardAddr)] = DryRunnableStorage{
 			Storage: interfaces[0],
 			Codec:   opts.StorageConfig.Codec,
 		}
@@ -1919,7 +1911,7 @@ func (e *Store) CompleteWithOptions(options *generic.StoreOptions) error {
 		e.FastStorage = make(map[string]DryRunnableStorage)
 
 		for i, inter := range interfaces {
-			e.FastStorage[opts.StorageConfig.FastStorage[i].Transport.ServerList[0]] = DryRunnableStorage{
+			e.FastStorage[storage.HashIPPort(opts.StorageConfig.FastStorage[i].Transport.ServerList[0])] = DryRunnableStorage{
 				Storage: inter,
 				Codec:   opts.StorageConfig.Codec,
 			}

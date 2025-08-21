@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/serialx/hashring"
 	"path"
 	"reflect"
 	"strconv"
@@ -2513,9 +2512,9 @@ func newTestGenericStoreRegistry(t *testing.T, scheme *runtime.Scheme, hasCacheE
 				},
 			}
 		},
-		Storage:         DryRunnableStorage{Storage: s[0]},
-		FastStorage:     map[string]DryRunnableStorage{"storage": {Storage: s[0]}},
-		FastStorageRing: hashring.New([]string{"storage"}),
+		Storage:          DryRunnableStorage{Storage: s[0]},
+		FastStorage:      map[string]DryRunnableStorage{"storage": {Storage: s[0]}},
+		FastStorageNodes: []string{"storage"},
 	}
 }
 
