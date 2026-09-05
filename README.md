@@ -170,16 +170,8 @@ file. Use this command to start the installation using ansible:
 ansible-playbook -i ste/ansible/inventory.ini ste/ansible/setup.yaml
 ```
 
-## Knative evaluation
-To showcase the reduced cold start time in STE, Knative performance is measured when it is installed on STE and native
-Kubernetes. The figure below compares average end-to-end latencies of requests under varying numbers of
-cold starts, with minimum and maximum latencies indicated to highlight the tail latency.
-As the number of cold starts increases, the native Kubernetes setup incurs more persistent etcd updates and
-experiences greater disk contention along the critical path. Even the tail latency in this setup can
-approach one minute. In contrast, STE demonstrates significantly better performance and reduced latency variability,
-as Pod objects are stored in in-memory etcd shards rather than being written to persistent and replicated storage.
-
-<p align="center"><img src="https://github.com/user-attachments/assets/c0a67316-4f78-4c93-99e2-e31952625487" alt="knative" width="400"></p>
+## Running batch and steady-state benchmarks
+To run the benchmark, please refer to the official <a href="https://github.com/kubernetes/perf-tests/tree/master/clusterloader2">CL2 document</a>. The `template.yaml` and the `config.yaml` files for running the benchmarks are located in the `ste/manifests/cl2` directory.
 
 ## Contact
 
