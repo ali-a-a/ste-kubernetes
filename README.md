@@ -173,6 +173,18 @@ ansible-playbook -i ste/ansible/inventory.ini ste/ansible/setup.yaml
 ## Running batch and steady-state benchmarks
 To run the benchmark, please refer to the official <a href="https://github.com/kubernetes/perf-tests/tree/master/clusterloader2">CL2 document</a>. The `template.yaml` and the `config.yaml` files for running the benchmarks are located in the `ste/manifests/cl2` directory.
 
+Using `perf-test-config-script.sh`, you can generate manifests for CL2 to run and reproduce the results of batch creation experiments. This shell script accepts two argument, which specify the number of deployments you want to create in the experiment and the number of replicas for each deployment respectively.
+
+```bash
+perf-test-config-script.sh 100 10
+```
+
+Using `perf-test-config-script-steady.sh`, you can generate manifests for CL2 to run and reproduce the results of steady-state experiments. This shell script accepts three arguments. The first argument specifis the number of events, the second one specifies the number of replicas per deployment, and the last one specifies the number of deployments should be created per event.
+
+```bash
+perf-test-config-script-steady.sh 100 10 2
+```
+
 ## Contact
 
 Ali Abbasi Alaei - aabbasia@uwaterloo.ca
