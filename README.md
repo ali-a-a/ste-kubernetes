@@ -185,6 +185,9 @@ Using `perf-test-config-script-steady.sh`, you can generate manifests for CL2 to
 perf-test-config-script-steady.sh 100 10 2
 ```
 
+## Plotting the benchmark results
+After gathering the results in the previous section using CL2, you can plot the results and generate the figures using Python scripts provided in the `ste/plots` directory. The results from the benchmark should be manually written in the Python scripts.
+
 ## Contact
 
 Ali Abbasi Alaei - aabbasia@uwaterloo.ca
