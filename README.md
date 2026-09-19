@@ -13,7 +13,10 @@
 [![Github Actions](https://github.com/ali-a-a/ste-kubernetes/actions/workflows/ci.yaml/badge.svg)](https://github.com/ali-a-a/ste-kubernetes/actions/workflows/ci.yaml)
 
 ---
-<p>Sharded Transient Etcd (STE) is a new design for the Kubernetes control plane and aims to reduce the Pod startup latency in this orchestration platform. It utilizes RAM-disk-backed etcd instances to eliminate the overhead of persistent etcd (e.g., fsync calls and Raft operations) for ephemeral resources, such as stateless Pods. To maintain the same level of fault tolerance as native Kubernetes, STE employs sharding for in-memory etcd instances and deploys them on worker nodes. </p>
+<p>Sharded Transient Etcd (STE) is a new control plane architecture for Kubernetes that separates high-churn, ephemeral Pod objects from persistent cluster state. STE uses RAM-disk-backed etcd instances to store stateless Pods managed by Deployments, while durable objects remain in persistent etcd. The design introduces sharding, watch multiplexing, revision-based failure detection, and node-collocated transient storage.</p>
+
+This repository contains the source code and supporting scripts for the STE prototype described in: <br>
+  *Fast Container Orchestration for Dynamic and Ephemeral Workloads, In Proceedings of 27th ACM International Middleware Conference (MIDDLEWARE ’26)*
 </div>
 
 <div align="center">
@@ -24,9 +27,23 @@
   </a>
 </div>
 
-## Software implementation
+## Artifact Evaluation
+Requested badge: <b>Artifacts Available</b>
 
-Main modifications are made in these commits:
+This repository is the publicly available artifact associated with the paper. This submission requests only the Artifacts Available badge. The repository provides the STE implementation, configuration and deployment scripts, benchmark configurations, and plotting scripts used in the work.
+
+## Artifact Contents
+
+The artifact includes:
+
+- STE implementation: Modifications to the Kubernetes control plane and supporting components required for transient etcd storage and sharding.
+- Deployment and configuration scripts: Scripts for configuring the control plane, worker nodes, persistent etcd, and transient etcd shards.
+- Ansible playbook: Automated deployment configuration.
+- Benchmark configurations: ClusterLoader2 (CL2) templates and configuration files.
+- Benchmark generation scripts: Scripts for generating configurations for batch-creation and steady-state experiments.
+- Plotting scripts: Python scripts for generating plots from collected benchmark results.
+
+The main STE-specific implementation changes are captured in the following commits:
 
 * <a href="https://github.com/ali-a-a/ste-kubernetes/commit/72d086e53f8090a8318eaf21ff4499350fd57e12">72d086e</a> - Add the second storage
 * <a href="https://github.com/ali-a-a/ste-kubernetes/commit/eaab8a75bfa52d2dc35dfad31b901d84fec142a6">eaab8a7</a> - Forward pods to the second storage
@@ -41,6 +58,22 @@ The code can be downloaded by cloning the repository:
 ```bash
 git clone https://github.com/ali-a-a/ste-kubernetes.git
 ```
+
+## System and Software Environment
+
+The paper's experiments use the following environment:
+
+- Kubernetes v1.32.0
+- etcd v3.5
+- Ubuntu 24.04.2
+- Linux kernel v6.11
+- 8 servers
+- 64 GB RAM per server
+- Intel Xeon E5-2620 24-core CPUs
+- 3 persistent etcd servers with Intel S3700 200GB SSDs
+- 3 real worker nodes running containerd v1.7
+- 3 additional worker nodes simulated using KWOK v0.6.1
+- 4GB RAM disk for each transient etcd shard
 
 ## Installation
 
