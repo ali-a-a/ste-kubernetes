@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+title: "Sharded Transient Etcd (STE)"
+version: 1.0.0
+license: Apache-2.0
+repository-code: "https://github.com/ali-a-a/ste-kubernetes"
+
+authors:
+  - family-names: "Abbasi Alaei"
+    given-names: "Ali"
+    email: "aabbasia@uwaterloo.ca"
+    affiliation: "David R. Cheriton School of Computer Science, University of Waterloo"
+  - family-names: "Karsten"
+    given-names: "Martin"
+    email: "mkarsten@uwaterloo.ca"
+    affiliation: "David R. Cheriton School of Computer Science, University of Waterloo"
+
+preferred-citation:
+  type: conference-paper
+  title: "Fast Container Orchestration for Dynamic and Ephemeral Workloads"
+  authors:
+    - family-names: "Abbasi Alaei"
+      given-names: "Ali"
+    - family-names: "Karsten"
+      given-names: "Martin"
+  collection-title: "Proceedings of the 27th ACM International Middleware Conference"
+  year: 2026
+  doi: "10.1145/3801927.3858635"
