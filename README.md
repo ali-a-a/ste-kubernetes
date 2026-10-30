@@ -1,7 +1,7 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-  <a href="https://github.com/othneildrew/Best-README-Template">
+  <a href="https://github.com/ali-a-a/ste-kubernetes">
     <img src="https://github.com/user-attachments/assets/1acd6691-ea28-4a25-99a9-3d9f60b34a40" alt="Logo" width="189" height="160">
   </a>
 
@@ -17,6 +17,8 @@
 
 This repository contains the source code and supporting scripts for the STE prototype described in: <br>
   *Fast Container Orchestration for Dynamic and Ephemeral Workloads, In Proceedings of 27th ACM International Middleware Conference (MIDDLEWARE ’26)*
+
+  Paper: https://doi.org/10.1145/3801927.3858635
 </div>
 
 <div align="center">
